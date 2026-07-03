@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "wacrm - Self-Hostable CRM for WhatsApp",
     description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
     images: ["https://wacrm.tech/og-image.png"],
-    creator: "@ArnasDon",
+    creator: "@AshishKmj",
   },
   robots: {
     index: true,
@@ -188,12 +188,12 @@ export default function RootLayout({
               },
               "author": {
                 "@type": "Person",
-                "name": "Arnas Donauskas"
+                "name": "Ashish Kumar"
               },
               "license": "https://opensource.org/licenses/MIT",
               "url": "https://wacrm.tech",
               "sameAs": [
-                "https://github.com/ArnasDon/wacrm"
+                "https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ"
               ]
             }
           `}
