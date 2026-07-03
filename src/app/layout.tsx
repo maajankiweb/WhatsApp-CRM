@@ -20,27 +20,89 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
+    default: "wacrm - Self-Hostable CRM for WhatsApp",
     template: "%s — wacrm",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations. Fork it, brand it, host it.",
+  keywords: [
+    "CRM",
+    "WhatsApp",
+    "WhatsApp Business API",
+    "Next.js",
+    "Supabase",
+    "automation",
+    "broadcast",
+    "self-hosted",
+    "template",
+    "open-source",
+    "customer support",
+    "sales pipeline",
+    "Kanban",
+    "AI assistant",
+  ],
+  authors: [{ name: "Arnas Donauskas" }],
+  creator: "Arnas Donauskas",
+  publisher: "Arnas Donauskas",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://wacrm.tech",
+    siteName: "wacrm",
+    title: "wacrm - Self-Hostable CRM for WhatsApp",
+    description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+    images: [
+      {
+        url: "https://wacrm.tech/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "wacrm - Self-Hostable CRM for WhatsApp",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "wacrm - Self-Hostable CRM for WhatsApp",
+    description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+    images: ["https://wacrm.tech/og-image.png"],
+    creator: "@ArnasDon",
+  },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    icon: [{ url: "/favicon-32x32.svg", type: "image/svg+xml" }],
+    shortcut: [
+      { url: "/favicon-16x16.svg", sizes: "16x16", type: "image/svg+xml" },
+      { url: "/favicon-32x32.svg", sizes: "32x32", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.svg", sizes: "180x180", type: "image/svg+xml" }],
   },
+  manifest: "/site.webmanifest",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
+  },
+  alternates: {
+    canonical: "https://wacrm.tech",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#020617",
   colorScheme: "dark light",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 // Inline boot script — runs before React hydrates so the user's
@@ -85,6 +147,7 @@ export default function RootLayout({
       lang="en"
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
+      data-scroll-behavior="auto"
       className={`${inter.variable} h-full antialiased`}
       // The `theme-boot` script below rewrites `data-theme` and
       // `data-mode` on <html> from localStorage before React hydrates,
@@ -101,6 +164,40 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
+        {/* Google Analytics / Plausible / Umami - Add your analytics here */}
+        {/* <Script src="https://analytics.example.com/script.js" strategy="afterInteractive" /> */}
+
+        {/* Preconnect to external resources */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+
+        {/* Structured Data for SEO */}
+        <Script id="structured-data" type="application/ld+json" strategy="beforeInteractive">
+          {`
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "wacrm",
+              "description": "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+              "applicationCategory": "BusinessApplication",
+              "operatingSystem": "All",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "author": {
+                "@type": "Person",
+                "name": "Arnas Donauskas"
+              },
+              "license": "https://opensource.org/licenses/MIT",
+              "url": "https://wacrm.tech",
+              "sameAs": [
+                "https://github.com/ArnasDon/wacrm"
+              ]
+            }
+          `}
+        </Script>
       </head>
       <body className="min-h-full bg-background text-foreground font-sans">
         <ThemeProvider>

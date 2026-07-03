@@ -77,19 +77,32 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
-  // API routes that need auth (not webhooks)
-  if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
-      !request.nextUrl.pathname.includes('/webhook')) {
+  // Block WordPress detection requests
+  if (request.nextUrl.pathname.startsWith('/wp-json') ||
+      request.nextUrl.pathname.startsWith('/wp-')) {
     return withRefreshedCookies(
-      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      NextResponse.json({ error: 'Not found' }, { status: 404 })
     )
   }
 
+  // Redirect old PNG icon requests to SVG
+  const iconRedirects: Record<string, string> = {
+    '/apple-touch-icon.png': '/apple-touch-icon.svg',
+    '/favicon-16x16.png': '/favicon-16x16.svg',
+    '/favicon-32x32.png': '/favicon-32x32.svg',
+    '/android-chrome-192x192.png': '/android-chrome-192x192.svg',
+    '/android-chrome-512x512.png': '/android-chrome-512x512.svg',
+  }
+  if (iconRedirects[request.nextUrl.pathname]) {
+    const url = request.nextUrl.clone()
+    url.pathname = iconRedirects[request.nextUrl.pathname]
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   return supabaseResponse
-}
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
