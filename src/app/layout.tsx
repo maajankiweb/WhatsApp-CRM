@@ -40,9 +40,9 @@ export const metadata: Metadata = {
     "Kanban",
     "AI assistant",
   ],
-  authors: [{ name: "Arnas Donauskas" }],
-  creator: "Arnas Donauskas",
-  publisher: "Arnas Donauskas",
+  authors: [{ name: "Ashish Kumar" }],
+  creator: "Ashish Kumar",
+  publisher: "Ashish Kumar",
   openGraph: {
     type: "website",
     locale: "en_US",
