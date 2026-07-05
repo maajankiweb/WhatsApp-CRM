@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "wacrm - Self-Hostable CRM for WhatsApp",
     description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
     images: ["https://wacrm.tech/og-image.png"],
-    creator: "@AshishKmj",
+    creator: "@maajankiweb",
   },
   robots: {
     index: true,

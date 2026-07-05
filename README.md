@@ -17,7 +17,7 @@
 [![Stars](https://img.shields.io/github/stars/maajankiweb/WhatsApp-CRM?style=social)](https://github.com/maajankiweb/WhatsApp-CRM/stargazers)
 
 The marketing site and self-host docs live in a separate repo:
-[AshishKmj/MY-WhatsApp-CRM-MJ-site](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ-site)
+[maajankiweb/MY-WhatsApp-CRM-MJ-site](https://github.com/maajankiweb/MY-WhatsApp-CRM-MJ-site)
 ([wacrm.tech](https://wacrm.tech)). This repo is the product —
 clone or fork it to run your own CRM.
 
@@ -137,7 +137,7 @@ Full walkthrough with screenshots:
 Full self-host documentation — Supabase migrations, WhatsApp Business
 API config, and production deploy — lives at
 **[wacrm.tech/docs](https://wacrm.tech/docs)**
-(source: [AshishKmj/MY-WhatsApp-CRM-MJ-site](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ-site)).
+(source: [maajankiweb/MY-WhatsApp-CRM-MJ-site](https://github.com/maajankiweb/MY-WhatsApp-CRM-MJ-site)).
 
 Key pages:
 - [Getting started](https://wacrm.tech/docs/getting-started)
