@@ -12,16 +12,22 @@ import {
   Bot,
   Shield,
   Zap,
-  GitFork,
   Star,
   Eye,
-  MousePointerClick,
-  Smartphone,
   Globe,
   Lock,
   Database,
   Bolt,
-  Code2
+  Code2,
+  Receipt,
+  GraduationCap,
+  IndianRupee,
+  Layers,
+  Sparkles,
+  ChevronDown,
+  Building2,
+  Smartphone,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -75,57 +81,22 @@ function FloatAnimation({ children, delay = '0s' }: { children: React.ReactNode;
   );
 }
 
-// GitHub stats component
-function GitHubStats() {
-  const [stars, setStars] = useState('1.5k');
-  const [forks, setForks] = useState('300');
-
-  useEffect(() => {
-    // Fetch GitHub stats
-    fetch('https://api.github.com/repos/maajankiweb/WhatsApp-CRM')
-      .then(res => res.json())
-      .then(data => {
-        if (data.stargazers_count) {
-          setStars(data.stargazers_count.toLocaleString());
-        }
-        if (data.forks_count) {
-          setForks(data.forks_count.toLocaleString());
-        }
-      })
-      .catch(() => {
-        // Keep default values on error
-      });
-  }, []);
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
-        <Star className="w-4 h-4 text-yellow-400" />
-        <span className="text-sm font-medium">{stars}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <GitFork className="w-4 h-4" />
-        <span className="text-sm font-medium">{forks}</span>
-      </div>
-    </div>
-  );
-}
-
 // Tech stack badges
 function TechStack() {
   const tech = [
-    { name: 'Next.js 16', color: 'bg-black text-white' },
-    { name: 'React 19', color: 'bg-blue-500 text-white' },
-    { name: 'TypeScript', color: 'bg-blue-600 text-white' },
-    { name: 'Tailwind', color: 'bg-cyan-500 text-white' },
-    { name: 'Supabase', color: 'bg-green-500 text-white' },
-    { name: 'WhatsApp API', color: 'bg-green-400 text-black' },
+    { name: 'Next.js 16', color: 'bg-black text-white border border-neutral-800' },
+    { name: 'React 19', color: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' },
+    { name: 'TypeScript', color: 'bg-blue-600/10 text-blue-300 border border-blue-600/20' },
+    { name: 'Tailwind CSS v4', color: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' },
+    { name: 'Supabase DB', color: 'bg-green-500/10 text-green-400 border border-green-500/20' },
+    { name: 'Meta Cloud API', color: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' },
+    { name: 'MongoDB Atlas', color: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' },
   ];
 
   return (
-    <div className="flex flex-wrap justify-center gap-2">
+    <div className="flex flex-wrap justify-center gap-2 mt-6">
       {tech.map((t) => (
-        <Badge key={t.name} className={`${t.color} px-3 py-1 text-xs font-medium`}>
+        <Badge key={t.name} className={`${t.color} px-3 py-1 text-xs font-normal rounded-full`}>
           {t.name}
         </Badge>
       ))}
@@ -133,177 +104,194 @@ function TechStack() {
   );
 }
 
-// Main landing page component
 export default function LandingPage() {
   const animatedSections = useScrollAnimation();
+  const [isYearly, setIsYearly] = useState(false);
+  const [activeFaq, setActiveFaq] = useState<string | null>(null);
 
   const features = [
     {
       id: 'shared-inbox',
       icon: Users,
-      title: 'Shared Inbox',
-      description: 'Multiple agents working one WhatsApp number with per-conversation assignment, status tracking, and internal notes.',
-      color: 'text-violet-500',
-      bgColor: 'bg-violet-500/10',
+      title: 'Shared Team Inbox',
+      description: 'Multiple agents working on a single WhatsApp number. Direct conversation assignment, internal notes, and agent performance analytics.',
+      color: 'text-violet-400',
+      bgColor: 'bg-violet-500/5 border-violet-500/10 hover:border-violet-500/30',
     },
     {
-      id: 'contacts',
-      icon: Database,
-      title: 'Contacts & Tags',
-      description: 'Organize contacts with custom fields, CSV import, deduplication, and smart tagging.',
-      color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10',
-    },
-    {
-      id: 'pipelines',
-      icon: BarChart3,
-      title: 'Sales Pipelines',
-      description: 'Kanban-style deal management with drag-and-drop, linked to conversations.',
-      color: 'text-cobalt-500',
-      bgColor: 'bg-cobalt-500/10',
-    },
-    {
-      id: 'broadcasts',
-      icon: Megaphone,
-      title: 'Broadcasts',
-      description: 'Send Meta-approved templates with delivery tracking, read receipts, and variable substitution.',
-      color: 'text-amber-500',
-      bgColor: 'bg-amber-500/10',
-    },
-    {
-      id: 'automations',
+      id: 'flow-builder',
       icon: Zap,
-      title: 'No-Code Automations',
-      description: 'Visual builder for triggers, conditions, waits, tags, and webhooks. No coding required.',
-      color: 'text-rose-500',
-      bgColor: 'bg-rose-500/10',
+      title: 'No-Code Flow Builder',
+      description: 'Design visual chatbot automation workflows. Setup interactive list messages, button replies, delay nodes, and API webhooks.',
+      color: 'text-rose-400',
+      bgColor: 'bg-rose-500/5 border-rose-500/10 hover:border-rose-500/30',
     },
     {
-      id: 'ai-assistant',
+      id: 'ai-reply',
       icon: Bot,
-      title: 'AI Reply Assistant',
-      description: 'Bring your own OpenAI/Anthropic key. One-click AI-drafted replies and auto-reply bot.',
+      title: 'AI Support Assistant',
+      description: 'Intelligent auto-replies powered by OpenAI, Gemini, or Nvidia NIM. Automatically queries your KB to handle customer FAQs.',
       color: 'text-primary',
-      bgColor: 'bg-primary/10',
+      bgColor: 'bg-primary/5 border-primary/10 hover:border-primary/30',
+    },
+    {
+      id: 'gst-billing',
+      icon: Receipt,
+      title: 'GST Billing & Invoices',
+      description: 'Create and send professional GST-compliant invoices directly inside WhatsApp. Send PDF invoices, payment reminders, and receipts.',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30',
+    },
+    {
+      id: 'school-erp',
+      icon: GraduationCap,
+      title: 'School ERP Modules',
+      description: 'Integrate directly with school management systems. Auto-broadcast fee alerts, exam report cards, and student attendance notifications.',
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/5 border-amber-500/10 hover:border-amber-500/30',
+    },
+    {
+      id: 'white-label',
+      icon: Layers,
+      title: 'White-Label Portal',
+      description: 'Agencies can rebrand the platform. Configure your own agency logo, support domain, colors, and plans to sell to your clients.',
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/5 border-cyan-500/10 hover:border-cyan-500/30',
     },
   ];
 
   const benefits = [
     {
       icon: Shield,
-      title: 'Full Ownership',
-      description: 'Your code, your Supabase project, your domain, your data. No SaaS lock-in.',
+      title: 'Enterprise Tenant Isolation',
+      description: 'Supabase RLS secures multi-tenant workspace partitions. Your customer data remains securely separated.',
     },
     {
-      icon: Code2,
-      title: 'Full Customization',
-      description: 'Add fields, remove modules, redesign anything. Boring stack = short learning curve.',
+      icon: Globe,
+      title: 'Official Meta Cloud API',
+      description: 'Built on the stable Meta Business API. Zero risk of WhatsApp numbers getting banned compared to web-automation hacks.',
+    },
+    {
+      icon: Database,
+      title: 'Hybrid Database Architecture',
+      description: 'Supabase PostgreSQL powers core CRM, while MongoDB Atlas acts as the high-throughput engine for chats and AI context.',
     },
     {
       icon: Bolt,
-      title: 'Zero Ops to Start',
-      description: 'Hostinger deploys a fork in a few clicks. No Docker, no Kubernetes, no infra team.',
-    },
-    {
-      icon: Lock,
-      title: 'Real Security',
-      description: 'Token encryption (AES-256-GCM), RLS on every table, HMAC-verified webhooks.',
+      title: 'White-Label Ready',
+      description: 'Fully responsive white-labeling module enables agencies to build a fully customizable SaaS product in minutes.',
     },
   ];
 
-  const useCases = [
+  const pricingPlans = [
     {
-      title: 'Customer Support',
-      description: 'Handle customer inquiries efficiently with shared inbox and AI assistance.',
-      icon: MessageSquare,
+      name: 'Starter',
+      price: isYearly ? 799 : 999,
+      description: 'Essential features for local businesses and shops.',
+      features: [
+        '1 WhatsApp Number Session',
+        '1,000 Contacts Limit',
+        'Shared Inbox (Up to 3 Agents)',
+        'Basic Auto-Responder',
+        'Broadcast Templates Scheduler',
+        'Email Support',
+      ],
+      cta: 'Start Free Trial',
+      popular: false,
     },
     {
-      title: 'Sales Teams',
-      description: 'Track deals through customizable pipelines linked to WhatsApp conversations.',
-      icon: BarChart3,
+      name: 'Pro',
+      price: isYearly ? 1599 : 1999,
+      description: 'Advanced WhatsApp campaigns & AI automations.',
+      features: [
+        '3 WhatsApp Number Sessions',
+        '10,000 Contacts Limit',
+        'Unlimited Inbox Agents',
+        'No-Code Chatbot Flow Builder',
+        'AI Reply Assistant (BYO Key)',
+        'Google Sheets & Webhooks Sync',
+        'Priority Chat Support',
+      ],
+      cta: 'Get Pro Access',
+      popular: true,
     },
     {
-      title: 'Marketing Campaigns',
-      description: 'Run targeted broadcast campaigns with delivery tracking and analytics.',
-      icon: Megaphone,
-    },
-    {
-      title: 'Small Businesses',
-      description: 'Manage all customer communications in one place without complex setup.',
-      icon: Smartphone,
+      name: 'Business Suite',
+      price: isYearly ? 3999 : 4999,
+      description: 'Complete Indian Business OS with white-label portal.',
+      features: [
+        'Unlimited WhatsApp Numbers',
+        'Unlimited Contacts & Uploads',
+        'GST Billing & Invoicing (InvoBill)',
+        'School/Hospital ERP Connect',
+        'Full Agency White-Label Portal',
+        'Custom Domain Mapping',
+        '24/7 Dedicated Account Manager',
+      ],
+      cta: 'Upgrade to Business',
+      popular: false,
     },
   ];
 
   const faqs = [
     {
-      question: 'Is this free to use?',
-      answer: 'Yes! wacrm is MIT-licensed. You only pay for your hosting (Hostinger, Vercel, etc.) and WhatsApp Business API costs from Meta.',
+      question: 'Is this an official WhatsApp business solution?',
+      answer: 'Yes, MJChatSyncs utilizes the official Meta WhatsApp Cloud API. We do not use browser automation or unofficial web-client hacks, ensuring your business number is completely safe from suspension.',
     },
     {
-      question: 'Do I need coding experience?',
-      answer: 'Not to get started. Deploy with Hostinger in minutes. Customization requires basic React/Next.js knowledge.',
+      question: 'How does the White-Label feature work?',
+      answer: 'Under the Business Suite plan, agencies get access to a custom admin dashboard. You can map your own domain (e.g., crm.youragency.com), customize the CSS themes, add your logo, and sell subscription packages directly to your clients.',
     },
     {
-      question: 'Can I use my own WhatsApp number?',
-      answer: 'Yes! You connect your own WhatsApp Business Account via Meta Cloud API. Full setup guide included.',
+      question: 'Can we integrate it with our local billing or ERP systems?',
+      answer: 'Absolutely. We support incoming and outgoing webhooks, as well as a full REST API. The Business Suite comes pre-integrated with InvoBill for GST invoicing and standard school ERP systems.',
     },
     {
-      question: 'Is the data encrypted?',
-      answer: 'Yes. Sensitive data like API keys are encrypted with AES-256-GCM. All database access is protected by Row-Level Security.',
+      question: 'Is there a limit to how many messages we can send?',
+      answer: 'No, we do not charge per message. You only pay the flat subscription price. However, Meta\'s standard messaging fees for business-initiated conversations apply directly to your Meta billing account.',
     },
     {
-      question: 'Can I self-host this?',
-      answer: 'Absolutely! Deploy anywhere Node.js runs - Hostinger (recommended), Vercel, Railway, or your own VPS.',
-    },
-    {
-      question: 'What about updates?',
-      answer: 'Since you fork the repo, you control when and how to pull updates from upstream. No forced updates.',
+      question: 'Do we need a dedicated server to host this?',
+      answer: 'MJChatSyncs is optimized for Hostinger Managed Node.js, Vercel, or custom VPS. The setup is highly automated, and you can get up and running with a single-click deploy.',
     },
   ];
 
-  const [activeFaq, setActiveFaq] = useState<string | null>(null);
-
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
-      {/* Starry background for hero */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <StarryBackground />
-      </div>
+    <div className="min-h-screen bg-[#0a0c10] text-[#e3e6ed] relative overflow-x-hidden font-sans antialiased">
+      {/* Glow Effects */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-violet-500/5 rounded-full blur-[150px] pointer-events-none" />
 
-      {/* Navigation */}
-      <nav className="relative z-50 backdrop-blur-lg bg-background/80 border-b border-border/50 sticky top-0">
+      {/* Starry Background */}
+      <StarryBackground />
+
+      {/* Navigation Header */}
+      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0c10]/80 border-b border-neutral-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <span className="text-xl font-bold">wacrm</span>
+          <div className="flex items-center justify-between h-16 sm:h-20">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
+                <MessageSquare className="w-5.5 h-5.5 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold tracking-tight text-white leading-none">MJChatSyncs</span>
+                <span className="text-[10px] text-muted-foreground mt-1">InvoSuite Business OS</span>
               </div>
             </Link>
 
-            <div className="flex items-center gap-6">
-              <Link href="#features" className="text-sm font-medium hover:text-primary transition-colors">
-                Features
-              </Link>
-              <Link href="#benefits" className="text-sm font-medium hover:text-primary transition-colors">
-                Benefits
-              </Link>
-              <Link href="#use-cases" className="text-sm font-medium hover:text-primary transition-colors">
-                Use Cases
-              </Link>
-              <Link href="#faq" className="text-sm font-medium hover:text-primary transition-colors">
-                FAQ
-              </Link>
-              <Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <GitFork className="w-4 h-4" />
-                  <span className="hidden sm:inline">Star on GitHub</span>
-                </Button>
+            <div className="hidden md:flex items-center gap-8">
+              <Link href="#features" className="text-sm font-medium hover:text-white text-muted-foreground transition-colors">Features</Link>
+              <Link href="#white-label" className="text-sm font-medium hover:text-white text-muted-foreground transition-colors">White-Label</Link>
+              <Link href="#pricing" className="text-sm font-medium hover:text-white text-muted-foreground transition-colors">Pricing</Link>
+              <Link href="#faq" className="text-sm font-medium hover:text-white text-muted-foreground transition-colors">FAQ</Link>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Link href="/login">
+                <Button variant="ghost" className="text-sm font-medium text-muted-foreground hover:text-white">Sign In</Button>
               </Link>
               <Link href="/login">
-                <Button size="sm">Sign In</Button>
+                <Button className="shadow-lg shadow-primary/20 text-sm font-medium">Get Started</Button>
               </Link>
             </div>
           </div>
@@ -311,93 +299,138 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section
-        data-animate="hero"
-        id="hero"
-        className={`relative z-10 py-20 sm:py-32 transition-all duration-1000 ${
-          animatedSections.has('hero') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
-            <span className="text-primary text-sm font-medium">v0.7.0</span>
-            <span className="text-sm text-muted-foreground">Latest release</span>
+      <section id="hero" data-animate="hero" className="relative pt-20 pb-16 sm:pt-32 sm:pb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-4.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-fade-in">
+            <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+            <span className="text-xs font-semibold text-primary tracking-wide uppercase">Next-Gen WhatsApp SaaS</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-            Self-Hostable CRM for{' '}
-            <span className="relative inline-block">
-              WhatsApp
-              <span className="absolute inset-0 bg-primary/20 rounded-lg -z-10 animate-pulse" style={{ animationDuration: '2s' }} />
+          <h1 className="text-4xl sm:text-6xl lg:text-7.5xl font-black tracking-tight text-white leading-tight mb-8">
+            Complete WhatsApp CRM & <br/>
+            <span className="bg-gradient-to-r from-primary via-violet-400 to-cyan-400 bg-clip-text text-transparent">
+              Business Suite for India
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
-            Shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.
-            Fork it, brand it, host it.
+          <p className="text-base sm:text-xl text-[#9ea3b0] max-w-3xl mx-auto leading-relaxed mb-12">
+            Shared team inbox, no-code visual chatbot flows, and broadcast campaigns. Pre-integrated with GST Invoicing (InvoBill) and school/hospital ERP systems. Rebrand and sell as your own SaaS.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4.5">
             <Link href="/login">
-              <Button size="lg" className="gap-2 min-w-[180px]">
-                Get Started Free
+              <Button size="lg" className="w-full sm:w-auto px-8 py-6 h-auto text-base font-semibold shadow-xl shadow-primary/20 gap-2">
+                Start Free Trial
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link href="https://wacrm.tech/docs" target="_blank" rel="noopener noreferrer">
-              <Button size="lg" variant="outline" className="gap-2 min-w-[180px]">
+            <Link href="#features">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto px-8 py-6 h-auto text-base font-semibold border-neutral-800 hover:bg-neutral-900 gap-2">
                 <Eye className="w-4 h-4" />
-                View Docs
+                Explore Features
               </Button>
             </Link>
           </div>
 
-          <GitHubStats />
-          <div className="mt-8">
-            <TechStack />
+          <div className="mt-12 text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              Official Cloud API
+            </div>
+            <span className="hidden sm:inline text-neutral-800">•</span>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              Razorpay Subscriptions
+            </div>
+            <span className="hidden sm:inline text-neutral-800">•</span>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              White-Labeling Support
+            </div>
           </div>
+
+          <TechStack />
         </div>
 
-        {/* Hero visual */}
-        <div className="mt-16 max-w-5xl mx-auto px-4">
-          <div className="relative bg-card rounded-2xl p-4 sm:p-8 shadow-2xl shadow-primary/10 border border-border/50">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-sm font-medium text-green-500">Live Connection</span>
+        {/* Hero Mockup Visual */}
+        <div className="mt-20 max-w-6xl mx-auto px-4 relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-transparent to-transparent z-10" />
+          <div className="relative rounded-2xl p-2.5 bg-neutral-900/40 border border-neutral-800/80 shadow-2xl backdrop-blur-3xl">
+            <div className="bg-[#0e1117] rounded-xl overflow-hidden border border-neutral-900 aspect-video flex flex-col">
+              {/* Fake Window Header */}
+              <div className="h-11 bg-[#0b0d13] border-b border-neutral-900 px-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Check className="w-4 h-4 text-primary" />
-                    Shared Inbox
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Check className="w-4 h-4 text-primary" />
-                    AI Assistant
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Check className="w-4 h-4 text-primary" />
-                    Sales Pipelines
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Check className="w-4 h-4 text-primary" />
-                    Broadcasts
-                  </div>
+                <div className="text-[11px] text-muted-foreground font-mono bg-neutral-900/60 px-4 py-1 rounded border border-neutral-800/50">
+                  app.mjchatsyncs.com/dashboard
                 </div>
+                <div className="w-12" />
               </div>
-              <div className="hidden lg:block">
-                <div className="bg-gradient-to-br from-primary/20 to-primary/50 rounded-xl p-6 h-48">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <Smartphone className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                    <span className="font-medium">WhatsApp Integration</span>
+              {/* Fake Dashboard Body */}
+              <div className="flex-1 grid grid-cols-5 p-6 gap-6 bg-[#0a0c11]">
+                <div className="col-span-1 border-r border-neutral-900/80 pr-6 space-y-4">
+                  <div className="w-full h-8 bg-primary/10 rounded border border-primary/20 flex items-center px-3 gap-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                    <div className="w-12 h-2.5 bg-primary/20 rounded" />
                   </div>
-                  <div className="space-y-2">
-                    <div className="w-full h-2 bg-primary/30 rounded-full" />
-                    <div className="w-3/4 h-2 bg-primary/20 rounded-full" />
-                    <div className="w-1/2 h-2 bg-primary/30 rounded-full" />
+                  <div className="w-full h-8 rounded hover:bg-neutral-900/50 flex items-center px-3 gap-2">
+                    <Users className="w-3.5 h-3.5 text-neutral-600" />
+                    <div className="w-16 h-2 bg-neutral-800 rounded" />
+                  </div>
+                  <div className="w-full h-8 rounded hover:bg-neutral-900/50 flex items-center px-3 gap-2">
+                    <Receipt className="w-3.5 h-3.5 text-neutral-600" />
+                    <div className="w-14 h-2 bg-neutral-800 rounded" />
+                  </div>
+                  <div className="w-full h-8 rounded hover:bg-neutral-900/50 flex items-center px-3 gap-2">
+                    <Layers className="w-3.5 h-3.5 text-neutral-600" />
+                    <div className="w-20 h-2 bg-neutral-800 rounded" />
+                  </div>
+                </div>
+
+                <div className="col-span-4 grid grid-rows-6 gap-6">
+                  {/* Cards Row */}
+                  <div className="row-span-2 grid grid-cols-3 gap-6">
+                    <div className="bg-[#0e1117] rounded-xl p-5 border border-neutral-900 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Active Chats</span>
+                        <MessageSquare className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <span className="text-2xl font-bold text-white mt-2">1,248</span>
+                    </div>
+                    <div className="bg-[#0e1117] rounded-xl p-5 border border-neutral-900 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">GST Invoiced</span>
+                        <Receipt className="w-4 h-4 text-primary" />
+                      </div>
+                      <span className="text-2xl font-bold text-white mt-2">₹48,250</span>
+                    </div>
+                    <div className="bg-[#0e1117] rounded-xl p-5 border border-neutral-900 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">AI Resolution</span>
+                        <Bot className="w-4 h-4 text-violet-400" />
+                      </div>
+                      <span className="text-2xl font-bold text-white mt-2">84.2%</span>
+                    </div>
+                  </div>
+
+                  {/* Graph Area */}
+                  <div className="row-span-4 bg-[#0e1117] rounded-xl border border-neutral-900 p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-xs font-semibold text-white">Daily Message Analytics</span>
+                      <Badge variant="outline" className="text-[10px] bg-neutral-900 border-neutral-800">Live</Badge>
+                    </div>
+                    <div className="flex-1 flex items-end gap-3.5 pt-4">
+                      <div className="flex-1 bg-primary/20 rounded-t h-[40%] border-t border-primary/40" />
+                      <div className="flex-1 bg-primary/30 rounded-t h-[60%] border-t border-primary/50" />
+                      <div className="flex-1 bg-primary/20 rounded-t h-[30%] border-t border-primary/40" />
+                      <div className="flex-1 bg-gradient-to-t from-primary/30 to-primary/60 rounded-t h-[85%] border-t border-primary" />
+                      <div className="flex-1 bg-primary/20 rounded-t h-[50%] border-t border-primary/40" />
+                      <div className="flex-1 bg-primary/40 rounded-t h-[70%] border-t border-primary/60" />
+                      <div className="flex-1 bg-gradient-to-t from-primary/40 to-primary/80 rounded-t h-[95%] border-t-2 border-primary" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -410,42 +443,37 @@ export default function LandingPage() {
       <section
         id="features"
         data-animate="features"
-        className={`py-20 sm:py-28 bg-muted/30 transition-all duration-1000 ${
+        className={`py-24 bg-neutral-950/40 border-y border-neutral-900/60 transition-all duration-1000 ${
           animatedSections.has('features') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">
-              <Zap className="w-3 h-3 mr-1" />
-              Powerful Features
+          <div className="text-center mb-20">
+            <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20 text-primary px-3.5 py-1">
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              Unified Business OS
             </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              Everything You Need for WhatsApp CRM
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-6">
+              Features Built for Growth
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Built with modern tools, designed for productivity.
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2.5xl mx-auto">
+              Combine customer messaging with operations, invoicing, and white-label agency power in a single dashboard.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6.5">
             {features.map((feature, index) => (
-              <FloatAnimation key={feature.id} delay={`${index * 0.1}s`}>
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 group">
-                  <CardHeader>
-                    <div className={`flex items-center justify-center w-14 h-14 rounded-xl mb-4 group-hover:scale-105 transition-transform duration-300 ${feature.bgColor}`}>
-                      <feature.icon className={`w-7 h-7 ${feature.color}`} />
+              <FloatAnimation key={feature.id} delay={`${index * 0.08}s`}>
+                <Card className={`h-full border bg-neutral-900/30 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:bg-neutral-900/60 shadow-lg ${feature.bgColor} group`}>
+                  <CardHeader className="p-7">
+                    <div className="w-14 h-14 rounded-2xl bg-neutral-900 flex items-center justify-center border border-neutral-800 shadow-md group-hover:scale-105 transition-transform duration-300">
+                      <feature.icon className={`w-6.5 h-6.5 ${feature.color}`} />
                     </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-xl font-bold mt-5 text-white">{feature.title}</CardTitle>
+                    <CardDescription className="text-sm mt-3.5 text-[#9ea3b0] leading-relaxed">
                       {feature.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Link href="/login" className="text-primary text-sm font-medium hover:underline inline-flex items-center gap-1">
-                      Learn more <ArrowRight className="w-3 h-3" />
-                    </Link>
-                  </CardContent>
                 </Card>
               </FloatAnimation>
             ))}
@@ -453,131 +481,248 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Benefits Section */}
+      {/* Indian Market Integration Section */}
       <section
-        id="benefits"
-        data-animate="benefits"
-        className={`py-20 sm:py-28 transition-all duration-1000 ${
-          animatedSections.has('benefits') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        id="integrations"
+        data-animate="integrations"
+        className={`py-24 transition-all duration-1000 ${
+          animatedSections.has('integrations') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">
-              <Shield className="w-3 h-3 mr-1" />
-              Why Choose wacrm
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              Why Fork This Template?
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              This is a template, not a product. You get full control.
-            </p>
-          </div>
+          <div className="bg-gradient-to-br from-neutral-950 to-neutral-900/50 rounded-3xl p-8 sm:p-16 border border-neutral-900 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-primary/5 rounded-full blur-[80px]" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <Badge variant="outline" className="mb-4 bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
+                  <IndianRupee className="w-3.5 h-3.5 mr-1" />
+                  Made For Indian Businesses
+                </Badge>
+                <h2 className="text-3xl sm:text-4.5xl font-black tracking-tight text-white mb-6">
+                  GST Invoicing & <br/>
+                  School ERP Integration
+                </h2>
+                <p className="text-muted-foreground text-base sm:text-lg mb-8 leading-relaxed">
+                  Most CRM templates only handle chat. **MJChatSyncs** bridges the gap by integrating GST invoicing (via InvoBill) and local School/Hospital ERPs. Broadcast auto-reminders, invoice PDFs, and student attendance alerts automatically.
+                </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {benefits.map((benefit, index) => (
-              <FloatAnimation key={benefit.title} delay={`${index * 0.1}s`}>
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 mb-4">
-                      <benefit.icon className="w-6 h-6 text-primary" />
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-primary mt-1 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-white block">Automated Payment Reminders</span>
+                      <span className="text-sm text-muted-foreground">Send payment requests with Razorpay/UPI links and auto-reconciliation.</span>
                     </div>
-                    <CardTitle className="text-lg">{benefit.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {benefit.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
-              </FloatAnimation>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases Section */}
-      <section
-        id="use-cases"
-        data-animate="use-cases"
-        className={`py-20 sm:py-28 bg-muted/30 transition-all duration-1000 ${
-          animatedSections.has('use-cases') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">
-              <MousePointerClick className="w-3 h-3 mr-1" />
-              Perfect For
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              Who Uses wacrm?
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              From solopreneurs to growing teams.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {useCases.map((useCase, index) => (
-              <FloatAnimation key={useCase.title} delay={`${index * 0.1}s`}>
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300">
-                  <CardHeader>
-                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 mb-4">
-                      <useCase.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-primary mt-1 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-white block">School ERP Attendance & Marks</span>
+                      <span className="text-sm text-muted-foreground">Alert parents regarding attendance status, homework, and reports automatically.</span>
                     </div>
-                    <CardTitle className="text-lg">{useCase.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {useCase.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
-              </FloatAnimation>
-            ))}
-          </div>
-        </div>
-      </section>
+                  </div>
+                </div>
+              </div>
 
-      {/* CTA Section */}
-      <section
-        data-animate="cta"
-        id="cta"
-        className={`py-20 sm:py-28 transition-all duration-1000 ${
-          animatedSections.has('cta') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-3xl p-8 sm:p-12 lg:p-16 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-            <div className="relative">
-              <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur-sm">
-                <Globe className="w-3 h-3 mr-1" />
-                Ready to Start
-              </Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-                Deploy Your CRM in Minutes
-              </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-                Fork on GitHub, deploy to Hostinger, connect WhatsApp, and start managing conversations.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/login">
-                  <Button size="lg" className="gap-2 min-w-[180px]">
-                    Start Free Trial
-                    <ArrowRight className="w-4 h-4" />
+              <div className="bg-[#080a0e] rounded-2xl p-6 sm:p-8 border border-neutral-900/80 shadow-xl relative">
+                <h3 className="font-bold text-white text-lg mb-6 flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-emerald-400" />
+                  Active InvoBill Invoice Output
+                </h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-900 flex justify-between items-center">
+                    <div>
+                      <span className="text-xs text-muted-foreground block">CLIENT</span>
+                      <span className="text-sm font-semibold text-white">Shree Balaji Enterprises</span>
+                    </div>
+                    <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">PAID</Badge>
+                  </div>
+                  <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-900 flex justify-between items-center">
+                    <div>
+                      <span className="text-xs text-muted-foreground block">GST DETAILS (GSTIN)</span>
+                      <span className="text-sm font-mono text-white">07AAAAA1111A1Z1</span>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-900 flex justify-between items-center">
+                    <div>
+                      <span className="text-xs text-muted-foreground block">TOTAL INVOICED AMOUNT</span>
+                      <span className="text-base font-bold text-white">₹14,850.00</span>
+                    </div>
+                    <span className="text-xs text-[#9ea3b0]">CGST 9% + SGST 9%</span>
+                  </div>
+                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 text-white gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Broadcast via WhatsApp
                   </Button>
-                </Link>
-                <Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer">
-                  <Button size="lg" variant="outline" className="gap-2 min-w-[180px]">
-                    <GitFork className="w-4 h-4" />
-                    Fork on GitHub
-                  </Button>
-                </Link>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* White Label / Agency Section */}
+      <section
+        id="white-label"
+        data-animate="white-label"
+        className={`py-24 bg-neutral-950/20 border-t border-neutral-900/60 transition-all duration-1000 ${
+          animatedSections.has('white-label') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="order-2 lg:order-1 relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-primary/5 rounded-2xl blur-[40px]" />
+              <div className="bg-[#0e1117]/80 rounded-2xl p-8 border border-neutral-800 shadow-2xl relative">
+                <div className="h-8 flex items-center justify-between border-b border-neutral-900 pb-4 mb-6">
+                  <span className="text-xs font-semibold text-white">Agency White-Label Customization</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                </div>
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-xs text-[#9ea3b0]">Agency Domain (CNAME Mapping)</label>
+                    <div className="p-3 bg-neutral-950 rounded-lg border border-neutral-900 font-mono text-sm text-cyan-400">
+                      crm.maajankiweb.com
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-[#9ea3b0]">SaaS Theme Branding</label>
+                    <div className="flex gap-3">
+                      <div className="w-8 h-8 rounded bg-primary border border-white/20" />
+                      <div className="w-8 h-8 rounded bg-violet-600" />
+                      <div className="w-8 h-8 rounded bg-emerald-500" />
+                      <div className="w-8 h-8 rounded bg-amber-500" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-[#9ea3b0]">Logo & Favicon</label>
+                    <div className="p-3 bg-neutral-950 rounded-lg border border-neutral-900 text-xs text-muted-foreground flex items-center justify-between">
+                      <span>maajanki-logo.png</span>
+                      <Badge variant="outline" className="bg-primary/10 border-primary/20 text-primary text-[10px]">Loaded</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="order-1 lg:order-2">
+              <Badge variant="outline" className="mb-4 bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
+                <Layers className="w-3.5 h-3.5 mr-1" />
+                Agencies & Resellers
+              </Badge>
+              <h2 className="text-3xl sm:text-4.5xl font-black tracking-tight text-white mb-6">
+                Start Your Own SaaS Business
+              </h2>
+              <p className="text-muted-foreground text-base sm:text-lg mb-8 leading-relaxed">
+                Empower your agency to sell WhatsApp CRM software to local clients under your own brand. Custom colors, domains, emails, and subscription billing. Agencies have full control over client setups and workspace allocations.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="p-5 rounded-xl bg-neutral-950 border border-neutral-900">
+                  <Globe className="w-5 h-5 text-cyan-400 mb-2.5" />
+                  <span className="font-semibold text-white block mb-1">Custom Domain</span>
+                  <span className="text-xs text-muted-foreground">Map client workspaces to your brand domain seamlessly.</span>
+                </div>
+                <div className="p-5 rounded-xl bg-neutral-950 border border-neutral-900">
+                  <IndianRupee className="w-5 h-5 text-cyan-400 mb-2.5" />
+                  <span className="font-semibold text-white block mb-1">Custom Pricing</span>
+                  <span className="text-xs text-muted-foreground">Define and collect payments under your own subscription plans.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section
+        id="pricing"
+        data-animate="pricing"
+        className={`py-24 bg-neutral-950/40 border-y border-neutral-900/60 transition-all duration-1000 ${
+          animatedSections.has('pricing') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20 text-primary">
+              Pricing Plans
+            </Badge>
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-6">
+              Flexible Plans, No Hidden Fees
+            </h2>
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
+              Pick the right tier for your operations. All plans include Razorpay recurring subscription support.
+            </p>
+
+            {/* Pricing Toggle */}
+            <div className="inline-flex items-center gap-3 bg-neutral-900/80 border border-neutral-800 p-1.5 rounded-full">
+              <button
+                onClick={() => setIsYearly(false)}
+                className={`px-4.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  !isYearly ? 'bg-primary text-white shadow' : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsYearly(true)}
+                className={`px-4.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  isYearly ? 'bg-primary text-white shadow' : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                Yearly (20% Off)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            {pricingPlans.map((plan) => (
+              <Card
+                key={plan.name}
+                className={`relative flex flex-col justify-between border bg-neutral-900/20 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 ${
+                  plan.popular ? 'border-primary shadow-2xl shadow-primary/10 bg-neutral-900/40' : 'border-neutral-900'
+                }`}
+              >
+                {plan.popular && (
+                  <Badge className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-primary text-white text-xs font-semibold px-3 py-1 shadow">
+                    Most Popular
+                  </Badge>
+                )}
+                <div>
+                  <CardHeader className="p-6.5 border-b border-neutral-900">
+                    <CardTitle className="text-2xl font-bold text-white">{plan.name}</CardTitle>
+                    <CardDescription className="text-sm mt-2 text-[#9ea3b0]">{plan.description}</CardDescription>
+                    <div className="mt-5 flex items-baseline gap-1">
+                      <span className="text-xl font-medium text-white">₹</span>
+                      <span className="text-4.5xl font-black text-white">{plan.price}</span>
+                      <span className="text-sm text-muted-foreground">/ month</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6.5 space-y-4">
+                    {plan.features.map((feature) => (
+                      <div key={feature} className="flex items-center gap-3">
+                        <Check className="w-4.5 h-4.5 text-primary shrink-0" />
+                        <span className="text-sm text-[#e3e6ed]">{feature}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </div>
+                <div className="p-6.5 pt-0 mt-auto">
+                  <Link href="/login">
+                    <Button
+                      className={`w-full py-5 h-auto text-sm font-semibold shadow-lg transition-all ${
+                        plan.popular
+                          ? 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
+                          : 'bg-neutral-900 border border-neutral-800 text-white hover:bg-neutral-800'
+                      }`}
+                    >
+                      {plan.cta}
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
@@ -586,125 +731,113 @@ export default function LandingPage() {
       <section
         id="faq"
         data-animate="faq"
-        className={`py-20 sm:py-28 transition-all duration-1000 ${
+        className={`py-24 transition-all duration-1000 ${
           animatedSections.has('faq') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">
+            <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20 text-primary">
               FAQ
             </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-6">
               Frequently Asked Questions
             </h2>
-            <p className="text-lg text-muted-foreground">
-              Got questions? We have answers.
+            <p className="text-base sm:text-lg text-muted-foreground">
+              Have questions about the CRM platform? We have answers.
             </p>
           </div>
 
-          <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <FloatAnimation key={faq.question} delay={`${index * 0.1}s`}>
+          <div className="space-y-4.5">
+            {faqs.map((faq) => {
+              const isOpen = activeFaq === faq.question;
+              return (
                 <Card
-                  className={`cursor-pointer transition-all duration-300 ${
-                    activeFaq === faq.question ? 'bg-muted/50' : ''
+                  key={faq.question}
+                  className={`border bg-[#0c0f16] cursor-pointer transition-all duration-300 hover:border-neutral-800 ${
+                    isOpen ? 'border-primary/50 shadow' : 'border-neutral-900'
                   }`}
-                  onClick={() => setActiveFaq(activeFaq === faq.question ? null : faq.question)}
+                  onClick={() => setActiveFaq(isOpen ? null : faq.question)}
                 >
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center justify-between">
+                  <CardHeader className="p-5.5 flex flex-row items-center justify-between gap-4">
+                    <CardTitle className="text-base sm:text-lg text-white font-semibold">
                       {faq.question}
-                      <span className={`transform transition-transform duration-300 ${
-                        activeFaq === faq.question ? 'rotate-180' : ''
-                      }`}>
-                        <ArrowRight className="w-5 h-5" />
-                      </span>
                     </CardTitle>
+                    <ChevronDown
+                      className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-300 ${
+                        isOpen ? 'rotate-180 text-primary' : ''
+                      }`}
+                    />
                   </CardHeader>
-                  {activeFaq === faq.question && (
-                    <CardContent>
-                      <CardDescription className="text-base">
+                  {isOpen && (
+                    <CardContent className="px-5.5 pb-5.5 pt-0 border-t border-neutral-900/60 mt-2">
+                      <p className="text-sm sm:text-base text-muted-foreground leading-relaxed pt-4">
                         {faq.answer}
-                      </CardDescription>
+                      </p>
                     </CardContent>
                   )}
                 </Card>
-              </FloatAnimation>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-16 bg-muted/30 border-t border-border/50">
+      <footer className="py-16 bg-[#07090d] border-t border-neutral-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-1">
-              <Link href="/" className="flex items-center gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-primary-foreground" />
-                  </div>
-                  <span className="text-xl font-bold">wacrm</span>
+              <Link href="/" className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center">
+                  <MessageSquare className="w-4.5 h-4.5 text-white" />
                 </div>
+                <span className="text-lg font-bold text-white tracking-tight">MJChatSyncs</span>
               </Link>
-              <p className="text-sm text-muted-foreground mb-4">
-                Self-hostable CRM template for WhatsApp. Fork it, brand it, host it.
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                Premium multi-tenant white-label WhatsApp CRM and Indian Business Suite.
               </p>
-              <GitHubStats />
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2">
-                <li><Link href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link></li>
-                <li><Link href="#benefits" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Benefits</Link></li>
-                <li><Link href="#use-cases" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Use Cases</Link></li>
-                <li><Link href="https://wacrm.tech/docs" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Documentation</Link></li>
+              <h3 className="font-semibold text-white text-sm tracking-wider uppercase mb-5">Product</h3>
+              <ul className="space-y-3.5">
+                <li><Link href="#features" className="text-sm text-muted-foreground hover:text-white transition-colors">Features</Link></li>
+                <li><Link href="#white-label" className="text-sm text-muted-foreground hover:text-white transition-colors">White-Label</Link></li>
+                <li><Link href="#pricing" className="text-sm text-muted-foreground hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="#faq" className="text-sm text-muted-foreground hover:text-white transition-colors">FAQ</Link></li>
               </ul>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Resources</h3>
-              <ul className="space-y-2">
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">GitHub</Link></li>
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Issues</Link></li>
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/discussions" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Discussions</Link></li>
-                <li><Link href="https://wacrm.tech" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Website</Link></li>
+              <h3 className="font-semibold text-white text-sm tracking-wider uppercase mb-5">Resources</h3>
+              <ul className="space-y-3.5">
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">GitHub Repository</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">Bug Reports</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/discussions" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">Community Discussions</Link></li>
               </ul>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2">
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (MIT)</Link></li>
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contributing</Link></li>
-                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/.github/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</Link></li>
+              <h3 className="font-semibold text-white text-sm tracking-wider uppercase mb-5">Legal</h3>
+              <ul className="space-y-3.5">
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">License (MIT)</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">Contributing Guide</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/.github/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-white transition-colors">Security Policy</Link></li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-border/50 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} wacrm. All rights reserved.
+          <div className="border-t border-neutral-900/60 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              © {new Date().getFullYear()} MJChatSyncs. All rights reserved.
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
               Made with ❤️ for the open-source community
             </p>
           </div>
         </div>
       </footer>
-
-      {/* Scroll to top button */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed bottom-6 right-6 z-50 bg-background/80 backdrop-blur-lg hover:bg-background transition-all duration-300"
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      >
-        <ArrowRight className="w-4 h-4 rotate-90" />
-      </Button>
     </div>
   );
 }
