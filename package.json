@@ -5,13 +5,13 @@
   "description": "Self-hostable CRM template for WhatsApp built on Next.js and Supabase — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
   "license": "MIT",
   "author": "Ashish Kumar",
-  "homepage": "https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ",
+  "homepage": "https://github.com/maajankiweb/WhatsApp-CRM",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ.git"
+    "url": "git+https://github.com/maajankiweb/WhatsApp-CRM.git"
   },
   "bugs": {
-    "url": "https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/issues"
+    "url": "https://github.com/maajankiweb/WhatsApp-CRM/issues"
   },
   "keywords": [
     "crm",

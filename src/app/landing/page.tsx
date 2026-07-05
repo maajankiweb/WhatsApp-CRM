@@ -82,7 +82,7 @@ function GitHubStats() {
 
   useEffect(() => {
     // Fetch GitHub stats
-    fetch('https://api.github.com/repos/AshishKmj/MY-WhatsApp-CRM-MJ')
+    fetch('https://api.github.com/repos/maajankiweb/WhatsApp-CRM')
       .then(res => res.json())
       .then(data => {
         if (data.stargazers_count) {
@@ -296,7 +296,7 @@ export default function LandingPage() {
               <Link href="#faq" className="text-sm font-medium hover:text-primary transition-colors">
                 FAQ
               </Link>
-              <Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ" target="_blank" rel="noopener noreferrer">
+              <Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer">
                 <Button variant="ghost" size="sm" className="gap-2">
                   <GitFork className="w-4 h-4" />
                   <span className="hidden sm:inline">Star on GitHub</span>
@@ -570,7 +570,7 @@ export default function LandingPage() {
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ" target="_blank" rel="noopener noreferrer">
+                <Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer">
                   <Button size="lg" variant="outline" className="gap-2 min-w-[180px]">
                     <GitFork className="w-4 h-4" />
                     Fork on GitHub
@@ -668,9 +668,9 @@ export default function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Resources</h3>
               <ul className="space-y-2">
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">GitHub</Link></li>
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Issues</Link></li>
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/discussions" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Discussions</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">GitHub</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Issues</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/discussions" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Discussions</Link></li>
                 <li><Link href="https://wacrm.tech" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Website</Link></li>
               </ul>
             </div>
@@ -678,9 +678,9 @@ export default function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-2">
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (MIT)</Link></li>
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contributing</Link></li>
-                <li><Link href="https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/blob/main/.github/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (MIT)</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contributing</Link></li>
+                <li><Link href="https://github.com/maajankiweb/WhatsApp-CRM/blob/main/.github/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</Link></li>
               </ul>
             </div>
           </div>

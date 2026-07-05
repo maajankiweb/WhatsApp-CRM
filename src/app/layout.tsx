@@ -193,7 +193,7 @@ export default function RootLayout({
               "license": "https://opensource.org/licenses/MIT",
               "url": "https://wacrm.tech",
               "sameAs": [
-                "https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ"
+                "https://github.com/maajankiweb/WhatsApp-CRM"
               ]
             }
           `}

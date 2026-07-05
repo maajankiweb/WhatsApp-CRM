@@ -11,10 +11,10 @@
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](./LICENSE)
-[![CI](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/actions/workflows/ci.yml/badge.svg)](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/actions/workflows/ci.yml)
+[![CI](https://github.com/maajankiweb/WhatsApp-CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/maajankiweb/WhatsApp-CRM/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
-[![Stars](https://img.shields.io/github/stars/AshishKmj/MY-WhatsApp-CRM-MJ?style=social)](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ/stargazers)
+[![Stars](https://img.shields.io/github/stars/maajankiweb/WhatsApp-CRM?style=social)](https://github.com/maajankiweb/WhatsApp-CRM/stargazers)
 
 The marketing site and self-host docs live in a separate repo:
 [AshishKmj/MY-WhatsApp-CRM-MJ-site](https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ-site)
@@ -75,9 +75,9 @@ in an afternoon and make yours.
 ## Quick start
 
 ```bash
-# Fork on GitHub first: https://github.com/AshishKmj/MY-WhatsApp-CRM-MJ → Fork
-git clone https://github.com/<your-username>/MY-WhatsApp-CRM-MJ.git
-cd MY-WhatsApp-CRM-MJ
+# Fork on GitHub first: https://github.com/maajankiweb/WhatsApp-CRM → Fork
+git clone https://github.com/<your-username>/WhatsApp-CRM.git
+cd WhatsApp-CRM
 npm install
 cp .env.local.example .env.local   # fill in Supabase + Meta creds
 npm run dev
