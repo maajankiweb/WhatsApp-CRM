@@ -1,3 +1,4 @@
+import { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -19,6 +20,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PricingSection } from '@/components/landing/pricing-section';
+
+export const metadata: Metadata = {
+  title: 'Wachatra — Premium WhatsApp CRM & Business Suite',
+  description: 'Self-hostable, multi-tenant WhatsApp CRM & Business Suite for Indian SMBs & global agencies. Features shared team inbox, visual chatbot flows, and GST invoicing.',
+  keywords: [
+    'Wachatra',
+    'InvoSuite',
+    'WhatsApp CRM',
+    'WhatsApp Business API',
+    'Shared Inbox',
+    'GST Invoicing',
+    'No-code Chatbot Builder',
+    'Multi-tenant SaaS',
+    'Razorpay Subscription CRM',
+    'India SMB CRM',
+  ],
+};
 
 // Starry background component (pure CSS animations)
 function StarryBackground() {

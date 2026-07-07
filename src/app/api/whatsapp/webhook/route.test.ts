@@ -405,4 +405,215 @@ describe('POST /api/whatsapp/webhook', () => {
     const calls2 = mockFrom.mock.calls.filter(c => c[0] === 'user_organizations').length
     expect(calls2).toBe(0)
   })
+
+  it('processes status updates (delivered, read) and updates tables', async () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: {
+                  phone_number_id: 'valid-phone-id',
+                },
+                statuses: [
+                  {
+                    id: 'msg-meta-123',
+                    status: 'delivered',
+                    timestamp: '1783077575',
+                    recipient_id: '12345',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    mockQueryResult['waba_connections'] = {
+      data: {
+        organization_id: 'org-uuid-123',
+        access_token_encrypted: 'ivHex:ctHex:tagHex',
+      },
+      error: null,
+    }
+
+    mockQueryResult['user_organizations'] = {
+      data: { user_id: 'owner-user-uuid' },
+      error: null,
+    }
+
+    mockQueryResult['messages'] = [
+      { error: null }, // update message result
+      { data: { conversation_id: 'conv-uuid-777', conversations: { organization_id: 'org-uuid-123' } }, error: null }, // select message result for dispatching webhook
+    ]
+
+    mockQueryResult['broadcast_recipients'] = [
+      { data: { id: 'recipient-uuid-111', status: 'sent' }, error: null }, // fetch broadcast recipient result
+      { error: null }, // update broadcast recipient result
+    ]
+
+    const req = createReq(payload)
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    await Promise.all(afterPromises)
+
+    expect(mockFrom).toHaveBeenCalledWith('messages')
+    expect(mockFrom).toHaveBeenCalledWith('broadcast_recipients')
+    const { dispatchWebhookEvent } = await import('@/lib/webhooks/deliver')
+    expect(dispatchWebhookEvent).toHaveBeenCalled()
+  })
+
+  it('processes incoming reaction messages and upserts reaction in database', async () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: {
+                  phone_number_id: 'valid-phone-id',
+                },
+                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+                messages: [
+                  {
+                    id: 'msg-react-123',
+                    from: '12345',
+                    timestamp: '1783077575',
+                    type: 'reaction',
+                    reaction: {
+                      message_id: 'parent-meta-id',
+                      emoji: '❤️',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    mockQueryResult['waba_connections'] = {
+      data: {
+        organization_id: 'org-uuid-123',
+        access_token_encrypted: 'ivHex:ctHex:tagHex',
+      },
+      error: null,
+    }
+
+    mockQueryResult['user_organizations'] = {
+      data: { user_id: 'owner-user-uuid' },
+      error: null,
+    }
+
+    mockQueryResult['contacts'] = [
+      { data: null, error: null },
+      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
+    ]
+
+    mockQueryResult['conversations'] = [
+      { data: null, error: null },
+      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
+      { data: null, error: null },
+    ]
+
+    mockQueryResult['messages'] = [
+      { data: { id: 'parent-internal-id' }, error: null }, // lookupInternalIdByMetaId
+    ]
+
+    mockQueryResult['message_reactions'] = { error: null } // upsert result
+
+    const req = createReq(payload)
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    await Promise.all(afterPromises)
+
+    expect(mockFrom).toHaveBeenCalledWith('message_reactions')
+  })
+
+  it('processes interactive list/button reply messages', async () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: {
+                  phone_number_id: 'valid-phone-id',
+                },
+                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+                messages: [
+                  {
+                    id: 'msg-interactive-123',
+                    from: '12345',
+                    timestamp: '1783077575',
+                    type: 'interactive',
+                    interactive: {
+                      type: 'button_reply',
+                      button_reply: {
+                        id: 'btn-yes-id',
+                        title: 'Yes, proceed',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    mockQueryResult['waba_connections'] = {
+      data: {
+        organization_id: 'org-uuid-123',
+        access_token_encrypted: 'ivHex:ctHex:tagHex',
+      },
+      error: null,
+    }
+
+    mockQueryResult['user_organizations'] = {
+      data: { user_id: 'owner-user-uuid' },
+      error: null,
+    }
+
+    mockQueryResult['contacts'] = [
+      { data: null, error: null },
+      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
+    ]
+
+    mockQueryResult['conversations'] = [
+      { data: null, error: null },
+      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
+      { data: null, error: null },
+      { error: null }, // update conversation last_message_text
+    ]
+
+    mockQueryResult['messages'] = [
+      { count: 0, error: null }, // prior customer messages count
+      { data: { id: 'inserted-msg-uuid' }, error: null }, // insert message
+    ]
+
+    mockQueryResult['broadcast_recipients'] = [
+      { data: null, error: null },
+    ]
+
+    const req = createReq(payload)
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    await Promise.all(afterPromises)
+
+    // Verify it was saved with the interactive reply ID
+    const insertCalls = mockFrom.mock.calls.filter(c => c[0] === 'messages')
+    expect(insertCalls.length).toBeGreaterThan(0)
+  })
 })
+

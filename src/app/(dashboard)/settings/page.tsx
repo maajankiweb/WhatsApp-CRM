@@ -17,6 +17,7 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { BillingSettings } from '@/components/settings/billing-settings';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { IntegrationsPanel } from '@/components/settings/integrations-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -63,6 +64,7 @@ export default function SettingsPage() {
     members: <MembersTab />,
     billing: <BillingSettings />,
     api: <ApiKeysSettings />,
+    integrations: <IntegrationsPanel />,
   };
 
   return (
