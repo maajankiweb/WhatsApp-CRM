@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     // Return success boolean only — never return the token
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Complete Signup] Uncaught route handler error:', err);
     return NextResponse.json(
       { error: 'An unexpected server error occurred.' },

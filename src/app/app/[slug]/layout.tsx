@@ -27,7 +27,7 @@ export default async function TenantLayout({ children, params }: LayoutProps) {
   
   // Resolve organization context.
   // Performs the database check, and handles 404/redirects server-side.
-  const org = await getTenantContext(slug);
+  await getTenantContext(slug);
 
   return <DashboardShell>{children}</DashboardShell>;
 }

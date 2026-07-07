@@ -5,6 +5,40 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface FbAuthResponse {
+  code?: string;
+}
+
+interface FbResponse {
+  authResponse?: FbAuthResponse;
+}
+
+interface FbLoginOptions {
+  scope: string;
+  config_id: string;
+  response_type: string;
+  extras: {
+    feature: string;
+    featureType: string;
+  };
+  override_default_response_type: boolean;
+}
+
+interface MetaFB {
+  init: (options: { appId: string; cookie: boolean; xfbml: boolean; version: string }) => void;
+  login: (
+    callback: (response: FbResponse) => void | Promise<void>,
+    options: FbLoginOptions
+  ) => void;
+}
+
+declare global {
+  interface Window {
+    FB?: MetaFB;
+    fbAsyncInit?: () => void;
+  }
+}
+
 interface WhatsAppConnectButtonProps {
   organizationId: string;
   onSuccess: () => void;
@@ -14,12 +48,14 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     // Check if FB is already loaded on window
-    if (typeof window !== 'undefined' && (window as any).FB) {
+    if (typeof window !== 'undefined' && window.FB) {
       setSdkLoaded(true);
     }
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const initMetaSdk = () => {
     const appId = process.env.NEXT_PUBLIC_META_APP_ID;
@@ -29,8 +65,8 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
     }
 
     try {
-      (window as any).fbAsyncInit = function() {
-        (window as any).FB.init({
+      window.fbAsyncInit = function() {
+        window.FB?.init({
           appId      : appId,
           cookie     : true,
           xfbml      : true,
@@ -40,7 +76,7 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
       };
 
       // Load SDK Script if not already loaded
-      if (!(window as any).FB && !document.getElementById('facebook-jssdk')) {
+      if (!window.FB && !document.getElementById('facebook-jssdk')) {
         const firstScript = document.getElementsByTagName('script')[0];
         const scriptElement = document.createElement('script');
         scriptElement.id = 'facebook-jssdk';
@@ -50,7 +86,7 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
         } else {
           document.head.appendChild(scriptElement);
         }
-      } else if ((window as any).FB) {
+      } else if (window.FB) {
         setSdkLoaded(true);
       }
     } catch (err) {
@@ -58,12 +94,14 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
     }
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     initMetaSdk();
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleConnect = () => {
-    if (!sdkLoaded || !(window as any).FB) {
+    if (!sdkLoaded || !window.FB) {
       toast.error('Meta SDK is not loaded yet. Please wait a moment.');
       return;
     }
@@ -77,8 +115,8 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
     setConnecting(true);
 
     try {
-      (window as any).FB.login(
-        async (response: any) => {
+      window.FB.login(
+        async (response) => {
           if (response.authResponse && response.authResponse.code) {
             const code = response.authResponse.code;
             
@@ -98,9 +136,10 @@ export function WhatsAppConnectButton({ organizationId, onSuccess }: WhatsAppCon
 
               toast.success('WhatsApp Business Account connected successfully!');
               onSuccess();
-            } catch (err: any) {
+            } catch (err) {
               console.error('Connection complete error:', err);
-              toast.error(err.message || 'Failed to connect WhatsApp account.');
+              const message = err instanceof Error ? err.message : 'Failed to connect WhatsApp account.';
+              toast.error(message);
             } finally {
               setConnecting(false);
             }

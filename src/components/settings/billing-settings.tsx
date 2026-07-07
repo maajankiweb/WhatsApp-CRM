@@ -65,7 +65,10 @@ export function BillingSettings() {
   }, [accountId]);
 
   useEffect(() => {
-    fetchBillingContext();
+    const timer = setTimeout(() => {
+      fetchBillingContext();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchBillingContext]);
 
   const handleUpgrade = async (planId: string) => {
@@ -142,7 +145,7 @@ export function BillingSettings() {
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
         toast.info('Opening checkout on Razorpay...');
-        window.location.href = data.shortUrl;
+        window.location.assign(data.shortUrl);
         return;
       }
 

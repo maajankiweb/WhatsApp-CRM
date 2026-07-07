@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from './route';
-import * as supabaseServer from '@/lib/supabase/server';
 
 // Mock the Supabase client
 const mockGetUser = vi.fn();
@@ -63,7 +62,7 @@ describe('POST /api/whatsapp/complete-signup', () => {
     mockUpsert.mockResolvedValue({ error: null });
   });
 
-  const createReq = (body: any) => {
+  const createReq = (body: unknown) => {
     return new NextRequest('https://app.test/api/whatsapp/complete-signup', {
       method: 'POST',
       body: JSON.stringify(body),

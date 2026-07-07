@@ -166,6 +166,7 @@ export function TemplateManager() {
 
   // Resize body_samples so it always has exactly bodyVarCount entries.
   // (We mutate via setForm in an effect so React owns the state.)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setForm((prev) => {
       if (prev.body_samples.length === bodyVarCount) return prev;
@@ -184,6 +185,7 @@ export function TemplateManager() {
     fetchTemplates(user.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function fetchTemplates(userId: string) {
     try {

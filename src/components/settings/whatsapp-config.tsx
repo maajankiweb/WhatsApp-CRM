@@ -62,11 +62,17 @@ export function WhatsAppConfig() {
   // again and overwrites whatever the user typed but hadn't saved yet.
   const loadedAccountIdRef = useRef<string | null>(null);
 
-  const [wabaConnection, setWabaConnection] = useState<any | null>(null);
-  const [wabaLoading, setWabaLoading] = useState(true);
+  interface WabaConnection {
+    id: string;
+    waba_id: string;
+    phone_number_id: string;
+    status: string;
+    created_at: string;
+  }
+
+  const [wabaConnection, setWabaConnection] = useState<WabaConnection | null>(null);
 
   const fetchWabaConnection = useCallback(async (orgId: string) => {
-    setWabaLoading(true);
     try {
       const { data, error } = await supabase
         .from('waba_connections')
@@ -77,11 +83,9 @@ export function WhatsAppConfig() {
       if (error) {
         console.error('Failed to load waba connection:', error);
       }
-      setWabaConnection(data || null);
+      setWabaConnection((data as WabaConnection) || null);
     } catch (err) {
       console.error('fetchWabaConnection error:', err);
-    } finally {
-      setWabaLoading(false);
     }
   }, [supabase]);
 
@@ -187,6 +191,7 @@ export function WhatsAppConfig() {
     }
   }, [supabase]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     // Need both the auth session (`!authLoading`) AND the profile
     // (`!profileLoading`, which carries `accountId`). Without the
@@ -203,7 +208,8 @@ export function WhatsAppConfig() {
     loadedAccountIdRef.current = accountId;
     fetchConfig(accountId);
     fetchWabaConnection(accountId);
-  }, [authLoading, profileLoading, user?.id, accountId, fetchConfig, fetchWabaConnection]);
+  }, [authLoading, profileLoading, user, accountId, fetchConfig, fetchWabaConnection]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleSave() {
     if (!phoneNumberId.trim()) {

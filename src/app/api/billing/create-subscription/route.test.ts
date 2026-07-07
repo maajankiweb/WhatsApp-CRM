@@ -49,7 +49,7 @@ const mockSingle = vi.fn();
 const mockUpdate = vi.fn();
 const mockEq = vi.fn();
 
-const mockFrom = vi.fn((_table: string) => {
+const mockFrom = vi.fn(() => {
   return {
     select: () => ({
       eq: () => ({

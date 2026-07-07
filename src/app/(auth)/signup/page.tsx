@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, CheckCircle, Sparkles, Building2, ArrowRight, Loader2, UsersRound } from "lucide-react";
+import { MessageSquare, CheckCircle, Building2, ArrowRight, Loader2, UsersRound } from "lucide-react";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
@@ -47,7 +47,6 @@ function SignupPageInner() {
 
   // Step state: 'auth' | 'verify-email' | 'org'
   const [step, setStep] = useState<"auth" | "verify-email" | "org">("auth");
-  const [sessionUser, setSessionUser] = useState<any>(null);
 
   // Form Fields
   const [fullName, setFullName] = useState("");
@@ -71,13 +70,21 @@ function SignupPageInner() {
   // Reserved slugs list
   const RESERVED_SLUGS = ["app", "api", "www", "admin", "auth", "static"];
 
+  // Redirect logic
+  const redirectToDashboard = (slug: string) => {
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "localhost:3000";
+    if (process.env.NODE_ENV === "development") {
+      window.location.href = `${window.location.origin}/dashboard?org=${slug}`;
+    } else {
+      window.location.href = `https://${slug}.${mainDomain}/app/${slug}/dashboard`;
+    }
+  };
+
   // 1. Session check to redirect or show Org Creation step
   useEffect(() => {
     async function checkUserSession() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setSessionUser(user);
-        
         // If they have an invite token, forward them to the join flow
         if (inviteToken) {
           router.push(`/join/${encodeURIComponent(inviteToken)}`);
@@ -92,7 +99,10 @@ function SignupPageInner() {
 
         if (orgs && orgs.length > 0) {
           // User already belongs to an organization, redirect to it
-          const orgData: any = orgs[0].organizations;
+          const orgData = orgs[0].organizations as
+            | { slug: string }
+            | { slug: string }[]
+            | null;
           const firstOrgSlug = Array.isArray(orgData)
             ? orgData[0]?.slug
             : orgData?.slug;
@@ -110,16 +120,6 @@ function SignupPageInner() {
     }
     checkUserSession();
   }, [supabase, inviteToken, router]);
-
-  // Redirect logic
-  const redirectToDashboard = (slug: string) => {
-    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "localhost:3000";
-    if (process.env.NODE_ENV === "development") {
-      window.location.href = `${window.location.origin}/dashboard?org=${slug}`;
-    } else {
-      window.location.href = `https://${slug}.${mainDomain}/app/${slug}/dashboard`;
-    }
-  };
 
   // Helper to generate slug
   const generateSlug = (name: string): string => {
@@ -311,8 +311,9 @@ function SignupPageInner() {
 
       // Successful creation, redirect to dashboard
       redirectToDashboard(orgSlug);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(message);
       setLoading(false);
     }
   };

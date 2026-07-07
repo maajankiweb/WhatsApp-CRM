@@ -81,6 +81,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   }, [url]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadImage();
     return () => {
       if (src?.startsWith("blob:")) {
@@ -107,6 +108,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src ?? ""}
       alt={alt}

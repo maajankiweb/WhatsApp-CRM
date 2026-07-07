@@ -18,7 +18,7 @@ vi.mock('razorpay', () => {
 // Mock Supabase admin client
 const mockUpdate = vi.fn();
 const mockEq = vi.fn();
-const mockFrom = vi.fn((_table: string) => {
+const mockFrom = vi.fn(() => {
   return {
     update: mockUpdate,
   };

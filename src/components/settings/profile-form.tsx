@@ -44,11 +44,13 @@ export function ProfileForm() {
   const [emailChangePending, setEmailChangePending] = useState(false);
 
   // Seed form state once the profile loads.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!profile) return;
     setFullName(profile.full_name ?? '');
     setEmail(profile.email ?? '');
   }, [profile]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Cleanup object URLs to avoid leaks.
   useEffect(() => {

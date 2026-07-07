@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { User } from '@supabase/supabase-js'
 
 export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
@@ -55,7 +56,7 @@ export async function proxy(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  let user: any = null
+  let user: User | null = null
 
   if (supabaseUrl && supabaseAnonKey) {
     try {

@@ -12,7 +12,6 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
-import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +58,7 @@ export default function InboxPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CONTACT_PANEL_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored !== null) setContactPanelOpen(stored === "true");
     } catch {
       // localStorage can throw in private-browsing / sandboxed contexts.

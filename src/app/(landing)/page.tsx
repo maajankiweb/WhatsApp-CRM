@@ -3,30 +3,20 @@ import {
   ArrowRight,
   Users,
   MessageSquare,
-  BarChart3,
-  Megaphone,
   Bot,
-  Shield,
   Zap,
-  Star,
   Eye,
   Globe,
-  Lock,
-  Database,
-  Bolt,
-  Code2,
   Receipt,
   GraduationCap,
   IndianRupee,
   Layers,
   Sparkles,
   ChevronDown,
-  Building2,
-  Smartphone,
   CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PricingSection } from '@/components/landing/pricing-section';
 

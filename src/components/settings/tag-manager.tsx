@@ -54,6 +54,7 @@ export function TagManager() {
   const [newTagName, setNewTagName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[3].value);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -63,6 +64,7 @@ export function TagManager() {
     fetchTags(user.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function fetchTags(userId: string) {
     try {

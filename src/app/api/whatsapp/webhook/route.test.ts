@@ -9,14 +9,14 @@ process.env.META_APP_SECRET = 'mock-app-secret'
 process.env.ENCRYPTION_KEY = 'f22db883c72a607586ae54f45814ad2692c0e797556a3588fec8450287eedecc'
 
 // Track promises scheduled in after() so we can await them in tests
-let afterPromises: Promise<any>[] = []
+let afterPromises: Promise<unknown>[] = []
 
 // Mock next/server
 vi.mock('next/server', async () => {
   const actual = await vi.importActual<typeof import('next/server')>('next/server')
   return {
     ...actual,
-    after: (callback: () => any) => {
+    after: (callback: () => unknown) => {
       const p = callback()
       if (p instanceof Promise) {
         afterPromises.push(p)
@@ -65,7 +65,7 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 }))
 
 // Mock database query state
-let mockQueryResult: Record<string, any> = {}
+let mockQueryResult: Record<string, unknown> = {}
 
 class MockQueryBuilder {
   private table: string
@@ -94,7 +94,7 @@ class MockQueryBuilder {
     console.log(`[MockDB] ${this.table}.maybeSingle() called -> returning`, val)
     return Promise.resolve(val)
   }
-  then(resolve: any) {
+  then(resolve: (value: unknown) => unknown) {
     const val = this.getResolveValue()
     console.log(`[MockDB] ${this.table}.then() called -> returning`, val)
     return Promise.resolve(val).then(resolve)
@@ -169,7 +169,7 @@ describe('POST /api/whatsapp/webhook', () => {
     vi.mocked(verifyMetaWebhookSignature).mockReturnValue(true)
   })
 
-  const createReq = (body: any, signature = 'sha256=validsig') => {
+  const createReq = (body: unknown, signature = 'sha256=validsig') => {
     const headers = new Headers()
     if (signature) {
       headers.set('x-hub-signature-256', signature)
