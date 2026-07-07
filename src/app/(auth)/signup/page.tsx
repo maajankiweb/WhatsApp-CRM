@@ -244,7 +244,6 @@ function SignupPageInner() {
 
     if (data.session) {
       // Email confirmation is disabled, user is immediately logged in
-      setSessionUser(data.user);
       if (inviteToken) {
         router.push(`/join/${encodeURIComponent(inviteToken)}`);
       } else {
