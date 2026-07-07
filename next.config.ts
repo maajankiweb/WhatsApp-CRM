@@ -61,6 +61,14 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  compress: true,
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "@radix-ui/react-icons",
+    ],
+  },
   /**
    * Cache-Control policy.
    *

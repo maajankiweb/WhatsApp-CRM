@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
     const { data: doc, error } = await supabase
       .from('ai_knowledge_documents')
-      .insert({ account_id: accountId, created_by: userId, title, content })
+      .insert({ account_id: accountId, organization_id: accountId, created_by: userId, title, content })
       .select('id')
       .single()
     if (error || !doc) {

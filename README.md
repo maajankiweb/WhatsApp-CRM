@@ -1,4 +1,4 @@
-# wacrm — CRM Template for WhatsApp
+# Wachatra — CRM Template for WhatsApp
 
 > Self-hostable CRM template for WhatsApp® — shared inbox, contacts,
 > sales pipelines, broadcasts, and no-code automations. Fork it, brand
@@ -18,7 +18,7 @@
 
 The marketing site and self-host docs live in a separate repo:
 [maajankiweb/MY-WhatsApp-CRM-MJ-site](https://github.com/maajankiweb/MY-WhatsApp-CRM-MJ-site)
-([wacrm.tech](https://wacrm.tech)). This repo is the product —
+([wachatra.com](https://wachatra.com)). This repo is the product —
 clone or fork it to run your own CRM.
 
 ## What you get out of the box
@@ -94,12 +94,12 @@ Open <http://localhost:3000>. You'll be redirected to `/login` (or
   </a>
 </p>
 <p align="center">
-  <a href="https://wacrm.tech/docs/deployment-hostinger">
-    <img src="https://img.shields.io/badge/Step--by--step_guide-wacrm.tech%2Fdocs-111?style=for-the-badge" alt="Step-by-step guide" height="44">
+  <a href="https://wachatra.com/docs/deployment-hostinger">
+    <img src="https://img.shields.io/badge/Step--by--step_guide-wachatra.com%2Fdocs-111?style=for-the-badge" alt="Step-by-step guide" height="44">
   </a>
 </p>
 
-**wacrm is built to run on [Hostinger](https://www.hostinger.com/web-apps-hosting).**
+**Wachatra is built to run on [Hostinger](https://www.hostinger.com/web-apps-hosting).**
 It's the path we test, document, and recommend — and the fastest way
 to get a production-grade CRM live without owning a VPS or a
 Kubernetes cluster.
@@ -126,9 +126,9 @@ Kubernetes cluster.
 4. Push to `main`. Hostinger builds and serves it. Done.
 
 Full walkthrough with screenshots:
-**[wacrm.tech/docs/deployment-hostinger](https://wacrm.tech/docs/deployment-hostinger)**.
+**[wachatra.com/docs/deployment-hostinger](https://wachatra.com/docs/deployment-hostinger)**.
 
-> _Note: wacrm is MIT-licensed and runs anywhere Node.js does
+> _Note: Wachatra is MIT-licensed and runs anywhere Node.js does
 > (Vercel, Railway, your own VPS). Hostinger is recommended, not
 > required._
 
@@ -136,17 +136,17 @@ Full walkthrough with screenshots:
 
 Full self-host documentation — Supabase migrations, WhatsApp Business
 API config, and production deploy — lives at
-**[wacrm.tech/docs](https://wacrm.tech/docs)**
+**[wachatra.com/docs](https://wachatra.com/docs)**
 (source: [maajankiweb/MY-WhatsApp-CRM-MJ-site](https://github.com/maajankiweb/MY-WhatsApp-CRM-MJ-site)).
 
 Key pages:
-- [Getting started](https://wacrm.tech/docs/getting-started)
-- [Supabase setup](https://wacrm.tech/docs/supabase-setup)
-- [WhatsApp setup](https://wacrm.tech/docs/whatsapp-setup)
-- [Environment variables](https://wacrm.tech/docs/environment-variables)
-- [Deploy on Hostinger](https://wacrm.tech/docs/deployment-hostinger)
-- [Architecture](https://wacrm.tech/docs/architecture)
-- [Troubleshooting](https://wacrm.tech/docs/troubleshooting)
+- [Getting started](https://wachatra.com/docs/getting-started)
+- [Supabase setup](https://wachatra.com/docs/supabase-setup)
+- [WhatsApp setup](https://wachatra.com/docs/whatsapp-setup)
+- [Environment variables](https://wachatra.com/docs/environment-variables)
+- [Deploy on Hostinger](https://wachatra.com/docs/deployment-hostinger)
+- [Architecture](https://wachatra.com/docs/architecture)
+- [Troubleshooting](https://wachatra.com/docs/troubleshooting)
 
 ## Stack
 

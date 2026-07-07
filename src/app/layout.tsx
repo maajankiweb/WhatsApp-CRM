@@ -20,8 +20,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm - Self-Hostable CRM for WhatsApp",
-    template: "%s — wacrm",
+    default: "Wachatra - Self-Hostable CRM for WhatsApp",
+    template: "%s — Wachatra",
   },
   description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations. Fork it, brand it, host it.",
   keywords: [
@@ -46,24 +46,24 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://wacrm.tech",
-    siteName: "wacrm",
-    title: "wacrm - Self-Hostable CRM for WhatsApp",
+    url: "https://wachatra.com",
+    siteName: "Wachatra",
+    title: "Wachatra - Self-Hostable CRM for WhatsApp",
     description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
     images: [
       {
-        url: "https://wacrm.tech/og-image.png",
+        url: "https://wachatra.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "wacrm - Self-Hostable CRM for WhatsApp",
+        alt: "Wachatra - Self-Hostable CRM for WhatsApp",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "wacrm - Self-Hostable CRM for WhatsApp",
+    title: "Wachatra - Self-Hostable CRM for WhatsApp",
     description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
-    images: ["https://wacrm.tech/og-image.png"],
+    images: ["https://wachatra.com/og-image.png"],
     creator: "@maajankiweb",
   },
   robots: {
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   alternates: {
-    canonical: "https://wacrm.tech",
+    canonical: "https://wachatra.com",
   },
 };
 
@@ -147,7 +147,7 @@ export default function RootLayout({
       lang="en"
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
-      data-scroll-behavior="auto"
+      data-scroll-behavior="smooth"
       className={`${inter.variable} h-full antialiased`}
       // The `theme-boot` script below rewrites `data-theme` and
       // `data-mode` on <html> from localStorage before React hydrates,
@@ -167,9 +167,6 @@ export default function RootLayout({
         {/* Google Analytics / Plausible / Umami - Add your analytics here */}
         {/* <Script src="https://analytics.example.com/script.js" strategy="afterInteractive" /> */}
 
-        {/* Preconnect to external resources */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 
         {/* Structured Data for SEO */}
         <Script id="structured-data" type="application/ld+json" strategy="beforeInteractive">
@@ -177,7 +174,7 @@ export default function RootLayout({
             {
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "wacrm",
+              "name": "Wachatra",
               "description": "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "All",
@@ -191,7 +188,7 @@ export default function RootLayout({
                 "name": "Ashish Kumar"
               },
               "license": "https://opensource.org/licenses/MIT",
-              "url": "https://wacrm.tech",
+              "url": "https://wachatra.com",
               "sameAs": [
                 "https://github.com/maajankiweb/WhatsApp-CRM"
               ]

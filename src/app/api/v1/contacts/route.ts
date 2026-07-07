@@ -25,6 +25,8 @@ import {
   ContactError,
 } from '@/lib/api/v1/contacts';
 
+import { checkQuota } from '@/lib/billing/usage';
+
 // PostgREST filter values are comma/paren-delimited; strip anything
 // that could break the `.or()` grammar before interpolating a search
 // term. Leaves the characters a phone or name legitimately contains.
@@ -112,6 +114,12 @@ export async function POST(request: Request) {
 
     const auditUserId = await resolveAuditUserId(ctx.supabase, ctx.accountId);
 
+    // Enforce Contact Quota Limits
+    const quota = await checkQuota(ctx.accountId, 'add_contact', 1, ctx.supabase);
+    if (!quota.allowed) {
+      return fail('forbidden', quota.reason || 'Contact limit exceeded.', 403);
+    }
+
     const { id, created } = await findOrCreateContact(
       ctx.supabase,
       ctx.accountId,
@@ -135,7 +143,11 @@ export async function POST(request: Request) {
     }
 
     const contact = await getContactById(ctx.supabase, ctx.accountId, id);
-    return ok(contact, created ? 201 : 200);
+    const response = ok(contact, created ? 201 : 200);
+    if (quota.warning) {
+      response.headers.set('X-Quota-Warning', quota.warning);
+    }
+    return response;
   } catch (err) {
     if (err instanceof ContactError) {
       return fail(

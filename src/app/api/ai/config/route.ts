@@ -207,6 +207,7 @@ export async function POST(request: Request) {
     } else {
       const { error: insErr } = await supabase.from('ai_configs').insert({
         account_id: accountId,
+        organization_id: accountId,
         created_by: userId,
         api_key: encryptedKey, // guaranteed non-null: rawKey required when no existing row
         ...shared,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { checkQuota } from '@/lib/billing/usage'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
 import {
@@ -124,6 +125,15 @@ export async function POST(request: Request) {
             'Provide either `recipients` (preferred) or `phone_numbers` — must be a non-empty array',
         },
         { status: 400 }
+      )
+    }
+
+    // Quota Enforcement: Verify monthly message limit before starting broadcast
+    const quota = await checkQuota(accountId, 'send_message', recipients.length, supabase)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: quota.reason || 'Message quota exceeded.' },
+        { status: 403 }
       )
     }
 

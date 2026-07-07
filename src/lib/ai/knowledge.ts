@@ -61,6 +61,7 @@ export async function ingestDocument(
   const rows = chunks.map((content, i) => ({
     document_id: documentId,
     account_id: accountId,
+    organization_id: accountId,
     chunk_index: i,
     content,
     embedding: embeddings ? toVectorLiteral(embeddings[i]) : null,

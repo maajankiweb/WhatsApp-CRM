@@ -37,6 +37,7 @@ import { requireApiKey } from '@/lib/auth/api-context';
 export const maxDuration = 60;
 import { ok, fail, toApiErrorResponse } from '@/lib/api/v1/respond';
 import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
+import { checkQuota } from '@/lib/billing/usage';
 import {
   createBroadcast,
   deliverBroadcast,
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
     const templateName =
       typeof body.template_name === 'string' ? body.template_name : '';
     const recipients = Array.isArray(body.recipients) ? body.recipients : [];
+
+    // Quota Enforcement: Check monthly message limit before starting broadcast
+    const quota = await checkQuota(ctx.accountId, 'send_message', recipients.length, ctx.supabase);
+    if (!quota.allowed) {
+      return fail('forbidden', quota.reason || 'Message quota exceeded.', 403);
+    }
 
     const auditUserId = await resolveAuditUserId(ctx.supabase, ctx.accountId);
 

@@ -36,8 +36,12 @@ function makeSupabaseMock() {
       switch (table) {
         case 'profiles':
           return { data: { account_id: 'acct-1' }, error: null }
+        case 'organizations':
+          return { data: { plan: 'starter' }, error: null }
         case 'contacts':
-          return { data: contactRow, error: null }
+          return { data: contactRow, count: 0, error: null }
+        case 'messages':
+          return { data: null, count: 0, error: null }
         case 'conversations':
           // Once created this request, a by-id reload returns it (with
           // its contact); otherwise fall back to the canned existing row.
@@ -83,7 +87,7 @@ function makeSupabaseMock() {
 
     const b: Record<string, unknown> = {}
     const chain = () => b
-    for (const m of ['select', 'eq', 'in', 'order', 'limit', 'update', 'delete']) {
+    for (const m of ['select', 'eq', 'in', 'order', 'limit', 'update', 'delete', 'neq', 'gte']) {
       b[m] = vi.fn(chain)
     }
     b.insert = vi.fn((payload: Record<string, unknown>) => {

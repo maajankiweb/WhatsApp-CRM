@@ -172,6 +172,7 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
       automation_id: automation.id,
       // Tenancy: matches automation.account_id (NOT NULL post-017).
       account_id: automation.account_id,
+      organization_id: automation.account_id,
       // Audit: keeps the historical "author of this automation"
       // pointer so logs still attribute to the right user even
       // after teammates join the account.
@@ -265,6 +266,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
         automation_id: args.automation.id,
         // Tenancy: account_id required NOT NULL post-017.
         account_id: args.automation.account_id,
+        organization_id: args.automation.account_id,
         user_id: args.automation.user_id,
         contact_id: args.contactId,
         log_id: args.logId,
@@ -401,7 +403,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       await db
         .from('contact_tags')
         .upsert(
-          { contact_id: args.contactId, tag_id: cfg.tag_id },
+          { contact_id: args.contactId, tag_id: cfg.tag_id, organization_id: args.automation.account_id },
           { onConflict: 'contact_id,tag_id', ignoreDuplicates: true },
         )
       return `tag ${cfg.tag_id} added`
@@ -475,7 +477,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         await db
           .from('contact_custom_values')
           .upsert(
-            { contact_id: args.contactId, custom_field_id: customFieldId, value },
+            { contact_id: args.contactId, custom_field_id: customFieldId, value, organization_id: args.automation.account_id },
             { onConflict: 'contact_id,custom_field_id' },
           )
         return `custom field updated`
@@ -512,6 +514,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       await db.from('deals').insert({
         // Tenancy + audit, same split as automation_logs above.
         account_id: args.automation.account_id,
+        organization_id: args.automation.account_id,
         user_id: args.automation.user_id,
         pipeline_id: cfg.pipeline_id,
         stage_id: cfg.stage_id,

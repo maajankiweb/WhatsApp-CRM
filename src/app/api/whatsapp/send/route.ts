@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkQuota } from '@/lib/billing/usage'
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -57,6 +58,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Your profile is not linked to an account.' },
         { status: 403 },
+      )
+    }
+
+    // Quota Enforcement: Check monthly message limit
+    const quota = await checkQuota(accountId, 'send_message', 1, supabase)
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: quota.reason || 'Message quota exceeded.' },
+        { status: 403 }
       )
     }
 

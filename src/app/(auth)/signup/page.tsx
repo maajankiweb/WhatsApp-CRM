@@ -1,23 +1,36 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageSquare, CheckCircle, Sparkles, Building2, ArrowRight, Loader2, UsersRound } from "lucide-react";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless wrapped in Suspense — same pattern as /login.
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
+    <path
+      fill="currentColor"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="currentColor"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+    />
+  </svg>
+);
+
 export default function SignupPage() {
   return (
     <Suspense fallback={null}>
@@ -27,24 +40,172 @@ export default function SignupPage() {
 }
 
 function SignupPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
   const inviteToken = searchParams.get("invite");
+  const supabase = createClient();
 
+  // Step state: 'auth' | 'verify-email' | 'org'
+  const [step, setStep] = useState<"auth" | "verify-email" | "org">("auth");
+  const [sessionUser, setSessionUser] = useState<any>(null);
+
+  // Form Fields
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const supabase = createClient();
 
-  const handleSignup = async (e: React.FormEvent) => {
+  // Org Fields
+  const [orgName, setOrgName] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
+  const [slugModified, setSlugModified] = useState(false);
+
+  // Status & Validation
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
+
+  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reserved slugs list
+  const RESERVED_SLUGS = ["app", "api", "www", "admin", "auth", "static"];
+
+  // 1. Session check to redirect or show Org Creation step
+  useEffect(() => {
+    async function checkUserSession() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setSessionUser(user);
+        
+        // If they have an invite token, forward them to the join flow
+        if (inviteToken) {
+          router.push(`/join/${encodeURIComponent(inviteToken)}`);
+          return;
+        }
+
+        // Check if user is associated with any organization
+        const { data: orgs } = await supabase
+          .from("user_organizations")
+          .select("organization_id, role, organizations(slug)")
+          .eq("user_id", user.id);
+
+        if (orgs && orgs.length > 0) {
+          // User already belongs to an organization, redirect to it
+          const orgData: any = orgs[0].organizations;
+          const firstOrgSlug = Array.isArray(orgData)
+            ? orgData[0]?.slug
+            : orgData?.slug;
+          
+          if (firstOrgSlug) {
+            redirectToDashboard(firstOrgSlug);
+          } else {
+            setStep("org");
+          }
+        } else {
+          // Logged in but no organization, skip directly to org creation
+          setStep("org");
+        }
+      }
+    }
+    checkUserSession();
+  }, [supabase, inviteToken, router]);
+
+  // Redirect logic
+  const redirectToDashboard = (slug: string) => {
+    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "localhost:3000";
+    if (process.env.NODE_ENV === "development") {
+      window.location.href = `${window.location.origin}/dashboard?org=${slug}`;
+    } else {
+      window.location.href = `https://${slug}.${mainDomain}/app/${slug}/dashboard`;
+    }
+  };
+
+  // Helper to generate slug
+  const generateSlug = (name: string): string => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric chars with hyphens
+      .replace(/^-+|-+$/g, "");   // Remove leading/trailing hyphens
+  };
+
+  // Handler for Org Name input change
+  const handleOrgNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setOrgName(val);
+    if (!slugModified) {
+      const generated = generateSlug(val);
+      setOrgSlug(generated);
+      validateSlug(generated);
+    }
+  };
+
+  // Handler for Org Slug input change
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSlugModified(true);
+    // Force lowercase, alphanumeric and hyphens format on typing
+    const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    setOrgSlug(val);
+    validateSlug(val);
+  };
+
+  // Validate slug client-side and trigger debounced database check
+  const validateSlug = (slug: string) => {
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+    }
+
+    if (!slug) {
+      setSlugError("Slug is required");
+      return;
+    }
+
+    if (slug.length < 3) {
+      setSlugError("Slug must be at least 3 characters");
+      return;
+    }
+
+    if (RESERVED_SLUGS.includes(slug)) {
+      setSlugError("This slug is reserved and cannot be used");
+      return;
+    }
+
+    // Slug format regex check
+    const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+    if (!slugRegex.test(slug)) {
+      setSlugError("Slug must contain only lowercase alphanumeric characters and hyphens, and cannot start or end with a hyphen.");
+      return;
+    }
+
+    setSlugError(null);
+    setSlugChecking(true);
+
+    // Debounce the Supabase query to check availability
+    checkTimeoutRef.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("organizations")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          setSlugError("This slug is already taken");
+        } else {
+          setSlugError(null);
+        }
+      } catch (err) {
+        console.error("Error checking slug availability:", err);
+      } finally {
+        setSlugChecking(false);
+      }
+    }, 500);
+  };
+
+  // Sign up via Email/Password
+  const handleCredentialsSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -60,22 +221,18 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
     const emailRedirectTo = inviteToken
       ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+      : `${window.location.origin}/auth/callback?next=/signup`;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        emailRedirectTo,
       },
     });
 
@@ -85,38 +242,249 @@ function SignupPageInner() {
       return;
     }
 
-    setSuccess(true);
+    if (data.session) {
+      // Email confirmation is disabled, user is immediately logged in
+      setSessionUser(data.user);
+      if (inviteToken) {
+        router.push(`/join/${encodeURIComponent(inviteToken)}`);
+      } else {
+        setStep("org");
+      }
+    } else {
+      // Verification email sent
+      setStep("verify-email");
+    }
     setLoading(false);
   };
 
-  if (success) {
+  // Google OAuth Signup
+  const handleGoogleSignup = async () => {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: inviteToken
+          ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
+          : `${window.location.origin}/auth/callback?next=/signup`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+    }
+  };
+
+  // Organization Creation
+  const handleCreateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!orgName) {
+      setError("Organization name is required");
+      return;
+    }
+
+    if (slugError || !orgSlug) {
+      setError(slugError || "Invalid slug");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Call the atomic postgres function via RPC
+      const { data, error } = await supabase.rpc("create_organization_with_owner", {
+        p_name: orgName,
+        p_slug: orgSlug,
+      });
+
+      if (error) throw error;
+
+      if (data && !data.success) {
+        setError(data.message || "Failed to create organization");
+        if (data.error === "slug_taken") {
+          setSlugError("This slug is already taken");
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Successful creation, redirect to dashboard
+      redirectToDashboard(orgSlug);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
+      setLoading(false);
+    }
+  };
+
+  // Render Step 1: Sign Up
+  if (step === "auth") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CheckCircle className="h-6 w-6 text-primary" />
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+              {inviteToken ? (
+                <UsersRound className="h-6 w-6 text-indigo-400" />
+              ) : (
+                <MessageSquare className="h-6 w-6 text-indigo-400" />
+              )}
             </div>
-            <CardTitle className="text-xl text-foreground">
-              Check your email
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+              {inviteToken ? "Create account & join" : "Create account"}
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="text-foreground">{email}</span>. Please check your
-              inbox and click the link to verify your account.
+            <CardDescription className="text-slate-400 text-sm">
+              {inviteToken
+                ? "Verify your details, then join your team workspace."
+                : "Get started with Wachatra CRM"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
+            {error && (
+              <div className="mb-4 rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleCredentialsSignup} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="fullName" className="text-slate-300 text-xs font-semibold">
+                  Full Name
+                </Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email" className="text-slate-300 text-xs font-semibold">
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password" className="text-slate-300 text-xs font-semibold">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Minimum 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="confirmPassword" className="text-slate-300 text-xs font-semibold">
+                  Confirm Password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Repeat password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="mt-2 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating account...
+                  </span>
+                ) : (
+                  "Create Account"
+                )}
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/5" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-slate-900/60 px-2 text-slate-500">Or continue with</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleSignup}
+              className="w-full h-10 border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-300 transition-all font-semibold flex items-center justify-center gap-2"
             >
+              <GoogleIcon className="h-4 w-4" />
+              Sign up with Google
+            </Button>
+
+            <p className="mt-6 text-center text-xs text-slate-400">
+              Already have an account?{" "}
+              <Link
+                href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}
+                className="text-indigo-400 hover:text-indigo-300 transition-all font-semibold"
+              >
+                Sign in
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render Step 1.5: Verify Email
+  if (step === "verify-email") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+              <CheckCircle className="h-6 w-6 text-emerald-400" />
+            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+              Check your inbox
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-sm">
+              We&apos;ve sent a confirmation link to <span className="text-white font-semibold">{email}</span>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              {inviteToken
+                ? "Please click the link inside the email to verify, then accept the invitation."
+                : "Once you click the link inside the email, we will verify your session and prompt you to create your organization."}
+            </p>
+            <Link href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}>
               <Button
                 variant="outline"
-                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="w-full border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-400 hover:border-white/10"
               >
                 Back to sign in
               </Button>
@@ -127,116 +495,103 @@ function SignupPageInner() {
     );
   }
 
+  // Render Step 2: Create Organization
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+      <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+            <Building2 className="h-6 w-6 text-indigo-400" />
           </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? "Create account & join" : "Create account"}
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            Setup your business
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {inviteToken
-              ? "Verify your email, then accept the invitation to join your team."
-              : "Get started with CRM Template for WhatsApp"}
+          <CardDescription className="text-slate-400 text-sm">
+            Create an organization to launch your CRM
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fullName" className="text-muted-foreground">
-                Full name
+          <form onSubmit={handleCreateOrganization} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="orgName" className="text-slate-300 text-xs font-semibold">
+                Organization Name
               </Label>
               <Input
-                id="fullName"
+                id="orgName"
                 type="text"
-                placeholder="John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Acme Corp"
+                value={orgName}
+                onChange={handleOrgNameChange}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-muted-foreground">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                Confirm password
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Repeat your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="orgSlug" className="text-slate-300 text-xs font-semibold">
+                  Workspace URL Slug
+                </Label>
+                {slugChecking && (
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+                    Checking...
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <Input
+                  id="orgSlug"
+                  type="text"
+                  placeholder="acme-corp"
+                  value={orgSlug}
+                  onChange={handleSlugChange}
+                  required
+                  className={`border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500/20 ${
+                    slugError 
+                      ? "border-red-500/30 focus-visible:border-red-500" 
+                      : orgSlug && !slugChecking 
+                        ? "border-emerald-500/30 focus-visible:border-emerald-500" 
+                        : "focus-visible:border-indigo-500"
+                  }`}
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 leading-tight">
+                {process.env.NODE_ENV === "development" 
+                  ? `Your URL: ${window.location.origin}/dashboard?org=${orgSlug || "acme-corp"}` 
+                  : `Your URL: https://${orgSlug || "acme-corp"}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "wachatra.com"}/app/dashboard`
+                }
+              </p>
+              {slugError && (
+                <p className="text-xs text-red-400 mt-0.5 leading-tight">{slugError}</p>
+              )}
             </div>
 
             <Button
               type="submit"
-              disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              disabled={loading || !!slugError || slugChecking || !orgSlug}
+              className="mt-4 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all disabled:opacity-50"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating workspace...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-1.5">
+                  Launch Workspace
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              )}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-              className="text-primary hover:text-primary/80"
-            >
-              Sign in
-            </Link>
-          </p>
         </CardContent>
       </Card>
     </div>

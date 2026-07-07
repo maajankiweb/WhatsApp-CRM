@@ -184,6 +184,7 @@ describe("update_contact_field — custom fields", () => {
       contact_id: "c1",
       custom_field_id: "cf1",
       value: "Premium",
+      organization_id: ACCOUNT,
     });
   });
 

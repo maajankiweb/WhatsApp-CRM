@@ -47,6 +47,8 @@ export function SettingsOverview({
   // from blanking the rest of the landing.
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  const [billingPlan, setBillingPlan] = useState<string | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
 
   useEffect(() => {
     if (!user || !accountId) return;
@@ -116,20 +118,73 @@ export function SettingsOverview({
     // WhatsApp connection status — slower, independent.
     (async () => {
       setWhatsappLoading(true);
-      const [row, health] = await Promise.allSettled([
-        supabase
-          .from('whatsapp_config')
-          .select('phone_number_id')
-          .eq('account_id', acctId)
-          .maybeSingle(),
-        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
-      ]);
-      if (cancelled) return;
-      setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
-        connected: health.status === 'fulfilled' && !!health.value?.connected,
-      });
-      setWhatsappLoading(false);
+      try {
+        const [legacyRow, wabaRow] = await Promise.allSettled([
+          supabase
+            .from('whatsapp_config')
+            .select('phone_number_id')
+            .eq('account_id', acctId)
+            .maybeSingle(),
+          supabase
+            .from('waba_connections')
+            .select('phone_number_id, status')
+            .eq('organization_id', acctId)
+            .maybeSingle(),
+        ]);
+
+        if (cancelled) return;
+
+        const wabaConnected = wabaRow.status === 'fulfilled' && wabaRow.value.data?.status === 'connected';
+        const wabaConfigured = wabaRow.status === 'fulfilled' && !!wabaRow.value.data?.phone_number_id;
+
+        if (wabaConnected) {
+          setWhatsapp({
+            configured: true,
+            connected: true,
+          });
+        } else {
+          // Check legacy config
+          const legacyConfigured = legacyRow.status === 'fulfilled' && !!legacyRow.value.data?.phone_number_id;
+          let legacyConnected = false;
+          if (legacyConfigured) {
+            try {
+              const res = await fetch('/api/whatsapp/config', { cache: 'no-store' });
+              const health = await res.json();
+              legacyConnected = !!health?.connected;
+            } catch {
+              // Ignore health fetch error, keep legacyConnected = false
+            }
+          }
+          setWhatsapp({
+            configured: wabaConfigured || legacyConfigured,
+            connected: legacyConnected,
+          });
+        }
+      } catch (err) {
+        console.error('SettingsOverview WhatsApp status check error:', err);
+      } finally {
+        setWhatsappLoading(false);
+      }
+    })();
+
+    // Fetch organization billing details
+    (async () => {
+      setBillingLoading(true);
+      try {
+        const { data: orgRow } = await supabase
+          .from('organizations')
+          .select('plan')
+          .eq('id', acctId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (orgRow) {
+          setBillingPlan(orgRow.plan);
+        }
+      } catch (err) {
+        console.error('SettingsOverview billing check error:', err);
+      } finally {
+        setBillingLoading(false);
+      }
     })();
 
     return () => {
@@ -209,6 +264,11 @@ export function SettingsOverview({
           : `${counts?.tags ?? 0} tag${counts?.tags === 1 ? '' : 's'} · ${
               counts?.customFields ?? 0
             } custom field${counts?.customFields === 1 ? '' : 's'}`,
+    },
+    {
+      section: 'billing',
+      loading: billingLoading,
+      subtitle: billingPlan ? `${billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1)} Plan` : 'Manage plan & billing',
     },
     {
       section: 'appearance',
