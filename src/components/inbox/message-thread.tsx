@@ -15,7 +15,9 @@ import type {
   ConversationStatus,
   MessageTemplate,
   Profile,
+  InteractiveMessagePayload,
 } from "@/types";
+import { AiThreadBanner } from "./ai-thread-banner";
 import {
   MessageSquare,
   ChevronDown,
@@ -562,6 +564,54 @@ export function MessageThread({
     [conversation, onNewMessage, onUpdateMessage],
   );
 
+  const handleSendInteractive = useCallback(
+    async (payload: InteractiveMessagePayload, replyToId?: string) => {
+      if (!conversation) return;
+
+      const tempId = `temp-${Date.now()}`;
+      // Optimistic bubble — renders the buttons/list immediately via the
+      // interactive_payload, same as the persisted row will.
+      const optimisticMsg: Message = {
+        id: tempId,
+        conversation_id: conversation.id,
+        sender_type: "agent",
+        content_type: "interactive",
+        content_text: payload.body,
+        interactive_payload: payload,
+        status: "sending",
+        created_at: new Date().toISOString(),
+        reply_to_message_id: replyToId,
+      };
+      onNewMessage(optimisticMsg);
+
+      try {
+        const res = await fetch("/api/whatsapp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            message_type: "interactive",
+            interactive_payload: payload,
+            reply_to_message_id: replyToId,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to send interactive message");
+        }
+
+        onUpdateMessage(tempId, { status: "sent" });
+      } catch (err) {
+        console.error("Failed to send interactive:", err);
+        const reason = err instanceof Error ? err.message : "network error";
+        toast.error(`Failed to send: ${reason}`);
+        onUpdateMessage(tempId, { status: "failed" });
+      }
+    },
+    [conversation, onNewMessage, onUpdateMessage],
+  );
+
   const handleStatusChange = useCallback(
     async (status: ConversationStatus) => {
       if (!conversation) return;
@@ -1071,12 +1121,29 @@ export function MessageThread({
         )}
       </div>
 
+      {/* AI auto-reply banner — take over an active bot, or resume it
+          after a handoff. Renders nothing unless the account has
+          auto-reply configured. */}
+      <AiThreadBanner
+        conversationId={conversation.id}
+        disabled={conversation.ai_autoreply_disabled ?? false}
+        handoffSummary={conversation.ai_handoff_summary}
+        assignedAgentId={assignedAgentId}
+        currentUserId={user?.id}
+        onChange={(patch) => {
+          if ("assigned_agent_id" in patch) {
+            onAssignChange(conversation.id, patch.assigned_agent_id ?? null);
+          }
+        }}
+      />
+
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
         sessionExpired={sessionInfo.expired}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
+        onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}

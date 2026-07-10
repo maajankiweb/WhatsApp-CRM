@@ -53,5 +53,5 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
 export function parseGeneration(raw: string): GenerateResult {
   const handoff = raw.includes(HANDOFF_SENTINEL)
   const text = raw.split(HANDOFF_SENTINEL).join('').trim()
-  return { text, handoff }
+  return { text, handoff, usage: null }
 }

@@ -33,6 +33,8 @@ export interface AutomationContext {
   tag_id?: string
   /** Agent the conversation was assigned to, for conversation_assigned. */
   agent_id?: string
+  /** The button/list option id the customer tapped, for interactive_reply triggers. */
+  interactive_reply_id?: string
 }
 
 export interface DispatchInput {

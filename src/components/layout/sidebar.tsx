@@ -16,6 +16,7 @@ import {
   LogOut,
   MessageSquare,
   Radio,
+  RefreshCw,
   Settings,
   Shield,
   User,
@@ -99,6 +100,7 @@ const navItems: NavItem[] = [
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/flows", label: "Flows", icon: Workflow, beta: true },
   { href: "/agents", label: "AI Agents", icon: Bot },
+  { href: "/settings?tab=reseller", label: "Reseller", icon: RefreshCw },
 ];
 
 const bottomNavItems = [

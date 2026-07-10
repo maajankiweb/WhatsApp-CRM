@@ -14,6 +14,8 @@ import {
   MessageSquare,
   Globe,
   Clock,
+  Building2,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +43,8 @@ export const SETTINGS_SECTIONS = [
   'billing',
   'api',
   'integrations',
+  'account_type',
+  'reseller',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -52,7 +56,7 @@ export interface SectionMeta {
   id: SettingsSection;
   label: string;
   icon: LucideIcon;
-  group: 'top' | 'account' | 'workspace';
+  group: 'top' | 'account' | 'workspace' | 'reseller';
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -71,13 +75,17 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   billing: { id: 'billing', label: 'Billing & Plans', icon: CreditCard, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
   integrations: { id: 'integrations', label: 'Integrations', icon: Link2, group: 'workspace' },
+  account_type: { id: 'account_type', label: 'Account type', icon: Building2, group: 'reseller' },
+  reseller: { id: 'reseller', label: 'Reseller program', icon: RefreshCw, group: 'reseller' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Workspace', group: 'workspace' },
+  { label: 'Partner', group: 'reseller' },
 ];
+
 
 function isSection(value: string | null): value is SettingsSection {
   return !!value && (SETTINGS_SECTIONS as readonly string[]).includes(value);

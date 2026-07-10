@@ -80,7 +80,7 @@ describe('POST /api/billing/change-plan', () => {
   it('returns 401 if user is not authenticated', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
     const req = createReq({ organizationId: 'org-123', planId: 'pro' });
-    const res = await POST(req);
+    const res = await POST(req, undefined);
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.error).toBe('Unauthenticated');
@@ -91,7 +91,7 @@ describe('POST /api/billing/change-plan', () => {
     mockSingle.mockResolvedValue({ data: null, error: { message: 'Not found' } }); // membership lookup fails
     
     const req = createReq({ organizationId: 'org-123', planId: 'pro' });
-    const res = await POST(req);
+    const res = await POST(req, undefined);
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toContain('Forbidden');
@@ -102,7 +102,7 @@ describe('POST /api/billing/change-plan', () => {
     mockSingle.mockResolvedValueOnce({ data: { role: 'agent' }, error: null }); // role check
 
     const req = createReq({ organizationId: 'org-123', planId: 'pro' });
-    const res = await POST(req);
+    const res = await POST(req, undefined);
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toContain('Unauthorized');
@@ -122,7 +122,7 @@ describe('POST /api/billing/change-plan', () => {
       }); // org check
 
     const req = createReq({ organizationId: 'org-123', planId: 'pro' });
-    const res = await POST(req);
+    const res = await POST(req, undefined);
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain('No active subscription found');
@@ -144,7 +144,7 @@ describe('POST /api/billing/change-plan', () => {
     mockUpdateSubscription.mockResolvedValue({ id: 'sub-active-123' });
 
     const req = createReq({ organizationId: 'org-123', planId: 'pro' });
-    const res = await POST(req);
+    const res = await POST(req, undefined);
     expect(res.status).toBe(200);
 
     const json = await res.json();

@@ -149,6 +149,7 @@ describe('POST /api/ai/draft', () => {
     vi.mocked(generateReply).mockResolvedValue({
       text: 'The price is $10.',
       handoff: false,
+      usage: null,
     });
 
     const req = createReq({ conversation_id: 'conv-123' });

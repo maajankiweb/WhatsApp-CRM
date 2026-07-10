@@ -746,7 +746,7 @@ export function IntegrationsPanel() {
                     className="text-xs bg-neutral-900 border-neutral-850"
                   />
                   <span className="text-[9px] text-muted-foreground block">
-                    Use tags: `{{name}}`, `{{checkout_url}}`, `{{total_price}}`
+                    {'Use tags: {{name}}, {{checkout_url}}, {{total_price}}'}
                   </span>
                 </div>
               )}
@@ -770,7 +770,7 @@ export function IntegrationsPanel() {
                     className="text-xs bg-neutral-900 border-neutral-850"
                   />
                   <span className="text-[9px] text-muted-foreground block">
-                    Use tags: `{{name}}`, `{{tracking_number}}`, `{{carrier}}`
+                    {'Use tags: {{name}}, {{tracking_number}}, {{carrier}}'}
                   </span>
                 </div>
               )}

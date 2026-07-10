@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { toApiErrorResponse, ApiError } from '@/lib/api/v1/respond';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
 
-type RouteHandler = (request: Request, context: any) => Promise<Response> | Response;
+type RouteHandler = (request: Request, context?: any) => Promise<Response> | Response;
 
 /**
  * Centrally handles errors for Next.js App Router route handlers.

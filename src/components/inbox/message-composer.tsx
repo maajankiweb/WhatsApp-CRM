@@ -21,8 +21,11 @@ import {
   Loader2,
   Sparkles,
   CreditCard,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { GatedButton } from "@/components/ui/gated-button";
 import {
   DropdownMenu,
@@ -49,8 +52,11 @@ import {
 import { ReplyQuote } from "./reply-quote";
 import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
-import type { CannedResponse } from "@/types";
+import type { CannedResponse, QuickReply, InteractiveMessagePayload } from "@/types";
 import { checkShortcutTrigger, getMediaKindFromUrl } from "@/lib/inbox/canned-utils";
+import { InteractiveBuilder } from "@/components/interactive/interactive-builder";
+import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
+import { QuickReplyPicker } from "./quick-reply-picker";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -110,6 +116,7 @@ interface MessageComposerProps {
   sessionExpired: boolean;
   onSend: (text: string, replyToId?: string) => void;
   onSendMedia: (payload: SendMediaPayload) => void;
+  onSendInteractive?: (payload: InteractiveMessagePayload, replyToId?: string) => void;
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
@@ -131,6 +138,7 @@ export function MessageComposer({
   sessionExpired,
   onSend,
   onSendMedia,
+  onSendInteractive,
   onOpenTemplates,
   replyTo,
   onClearReply,
@@ -139,6 +147,80 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [interactiveOpen, setInteractiveOpen] = useState(false);
+  const [interactivePayload, setInteractivePayload] =
+    useState<InteractiveMessagePayload | null>(null);
+  const [quickReplyOpen, setQuickReplyOpen] = useState(false);
+  const [savingQuickReply, setSavingQuickReply] = useState(false);
+
+  const openInteractiveBuilder = useCallback((init?: InteractiveMessagePayload) => {
+    setInteractivePayload(
+      init ?? {
+        kind: "buttons",
+        body: "",
+        buttons: [{ id: "opt_1", title: "Option 1" }],
+      }
+    );
+    setInteractiveOpen(true);
+  }, []);
+
+  const sendInteractive = useCallback(async () => {
+    if (!interactivePayload) return;
+    const result = validateInteractivePayload(interactivePayload);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setInteractiveOpen(false);
+    onSendInteractive?.(interactivePayload, replyTo?.id);
+    onClearReply?.();
+  }, [interactivePayload, onSendInteractive, replyTo?.id, onClearReply]);
+
+  const saveAsQuickReply = useCallback(async () => {
+    if (!interactivePayload) return;
+    const result = validateInteractivePayload(interactivePayload);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    const title = prompt("Enter a title for this quick reply:");
+    if (!title) return;
+
+    setSavingQuickReply(true);
+    try {
+      const res = await fetch("/api/quick-replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          kind: "interactive",
+          interactive_payload: interactivePayload,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Saved as quick reply!");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to save quick reply");
+      }
+    } catch {
+      toast.error("Failed to save quick reply");
+    } finally {
+      setSavingQuickReply(false);
+    }
+  }, [interactivePayload]);
+
+  const handlePickQuickReply = useCallback((qr: QuickReply) => {
+    setQuickReplyOpen(false);
+    if (qr.kind === "interactive" && qr.interactive_payload) {
+      openInteractiveBuilder(qr.interactive_payload);
+    } else if (qr.content_text) {
+      setText((prev) => (prev ? prev + " " + qr.content_text : qr.content_text!));
+      textareaRef.current?.focus();
+    }
+  }, [openInteractiveBuilder]);
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -745,6 +827,14 @@ export function MessageComposer({
                 <Mic className="mr-2 h-4 w-4" />
                 Voice note
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                <Zap className="mr-2 h-4 w-4" />
+                Interactive Message
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
+                <Zap className="mr-2 h-4 w-4" />
+                Quick Replies
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -905,7 +995,7 @@ export function MessageComposer({
                 min="0.01"
                 placeholder="0.00"
                 value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(e.target.value)}
                 className="bg-neutral-900 border-neutral-850 text-xs"
               />
             </div>
@@ -914,7 +1004,7 @@ export function MessageComposer({
               <Input
                 placeholder="e.g. Booking deposit"
                 value={paymentDesc}
-                onChange={(e) => setPaymentDesc(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentDesc(e.target.value)}
                 className="bg-neutral-900 border-neutral-850 text-xs"
               />
             </div>
@@ -922,7 +1012,7 @@ export function MessageComposer({
               <Label className="text-xs font-semibold">Payment Method</Label>
               <select
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as any)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaymentMethod(e.target.value as any)}
                 className="w-full rounded-md border border-neutral-850 bg-neutral-900 px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
               >
                 <option value="upi">UPI QR Code (Scan to Pay — Zero Commission)</option>
@@ -955,6 +1045,46 @@ export function MessageComposer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Interactive-message builder dialog. */}
+      <Dialog open={interactiveOpen} onOpenChange={setInteractiveOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Interactive Message</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <InteractiveBuilder
+              value={interactivePayload}
+              onChange={setInteractivePayload}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={savingQuickReply}
+              onClick={saveAsQuickReply}
+            >
+              {savingQuickReply ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="mr-1 h-4 w-4" />
+              )}
+              Save as Quick Reply
+            </Button>
+            <Button onClick={sendInteractive}>
+              <Send className="mr-1 h-4 w-4" />
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-reply picker. */}
+      <QuickReplyPicker
+        open={quickReplyOpen}
+        onOpenChange={setQuickReplyOpen}
+        onPick={handlePickQuickReply}
+      />
     </div>
   );
 }

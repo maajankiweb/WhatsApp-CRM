@@ -1,4 +1,14 @@
 import type { AccountRole } from "@/lib/auth/roles";
+import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
+
+export type {
+  InteractiveMessagePayload,
+  InteractiveButtonsPayload,
+  InteractiveListPayload,
+  InteractiveButton,
+  InteractiveListRow,
+  InteractiveListSection,
+} from "@/lib/whatsapp/interactive";
 
 export interface Profile {
   id: string;
@@ -159,6 +169,9 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   contact?: Contact;
+  ai_autoreply_disabled?: boolean;
+  ai_reply_count?: number;
+  ai_handoff_summary?: string | null;
 }
 
 // ============================================================
@@ -216,6 +229,8 @@ export interface Message {
    * cue (renders with a "↩ button reply" affordance).
    */
   interactive_reply_id?: string;
+  interactive_payload?: InteractiveMessagePayload;
+  ai_generated?: boolean;
 }
 
 export type ReactionActor = 'customer' | 'agent';
@@ -400,10 +415,13 @@ export type AutomationTriggerType =
   | 'new_contact_created'
   | 'conversation_assigned'
   | 'tag_added'
-  | 'time_based';
+  | 'time_based'
+  | 'interactive_reply';
 
 export type AutomationStepType =
   | 'send_message'
+  | 'send_buttons'
+  | 'send_list'
   | 'send_template'
   | 'add_tag'
   | 'remove_tag'
@@ -433,11 +451,16 @@ export interface TimeBasedTriggerConfig {
   timezone?: string;
 }
 
+export interface InteractiveReplyTriggerConfig {
+  reply_ids: string[];
+}
+
 export type AutomationTriggerConfig =
   | Record<string, never>
   | KeywordMatchTriggerConfig
   | TagTriggerConfig
   | TimeBasedTriggerConfig
+  | InteractiveReplyTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {
@@ -505,8 +528,13 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
+export type SendButtonsStepConfig = InteractiveMessagePayload;
+export type SendListStepConfig = InteractiveMessagePayload;
+
 export type AutomationStepConfig =
   | SendMessageStepConfig
+  | SendButtonsStepConfig
+  | SendListStepConfig
   | SendTemplateStepConfig
   | TagStepConfig
   | AssignConversationStepConfig
@@ -580,6 +608,20 @@ export interface CannedResponse {
   shortcut: string;
   content: string;
   media_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type QuickReplyKind = 'text' | 'interactive';
+
+export interface QuickReply {
+  id: string;
+  account_id: string;
+  user_id: string;
+  title: string;
+  kind: QuickReplyKind;
+  content_text?: string | null;
+  interactive_payload?: InteractiveMessagePayload | null;
   created_at: string;
   updated_at: string;
 }

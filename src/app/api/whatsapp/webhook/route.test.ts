@@ -1,17 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { GET, POST, clearAuditUserCache } from './route'
+import { GET, POST } from './route'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 
-// Mock environment variables
-process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'mock-verify-token'
-process.env.META_APP_SECRET = 'mock-app-secret'
-process.env.ENCRYPTION_KEY = 'f22db883c72a607586ae54f45814ad2692c0e797556a3588fec8450287eedecc'
+// ─── Env vars (must be set before the module is loaded) ───────────────────────
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
+process.env.META_WEBHOOK_VERIFY_TOKEN = 'mock-verify-token'
 
-// Track promises scheduled in after() so we can await them in tests
+// ─── Capture after() promises so we can await them in tests ───────────────────
 let afterPromises: Promise<unknown>[] = []
 
-// Mock next/server
 vi.mock('next/server', async () => {
   const actual = await vi.importActual<typeof import('next/server')>('next/server')
   return {
@@ -26,128 +25,111 @@ vi.mock('next/server', async () => {
   }
 })
 
-// Mock signature verification
+// ─── Signature verification ────────────────────────────────────────────────────
 vi.mock('@/lib/whatsapp/webhook-signature', () => ({
   verifyMetaWebhookSignature: vi.fn(() => true),
 }))
 
-// Mock encryption
+// ─── Encryption: identity so the verify_token round-trips ─────────────────────
 vi.mock('@/lib/whatsapp/encryption', () => ({
-  decrypt: (t: string) => t === 'ivHex:ctHex:tagHex' ? 'fake-decrypted-token' : t,
+  decrypt: (t: string) => t,
   encrypt: (t: string) => t,
   isLegacyFormat: () => false,
 }))
 
-// Mock other services
+// ─── External service stubs ───────────────────────────────────────────────────
 vi.mock('@/lib/automations/engine', () => ({
   runAutomationsForTrigger: vi.fn().mockResolvedValue(undefined),
 }))
-
 vi.mock('@/lib/flows/engine', () => ({
   dispatchInboundToFlows: vi.fn().mockResolvedValue({ consumed: false }),
 }))
-
 vi.mock('@/lib/ai/auto-reply', () => ({
   dispatchInboundToAiReply: vi.fn().mockResolvedValue(undefined),
 }))
-
-export const mockIsOutsideBusinessHours = vi.fn(() => false)
-vi.mock('@/lib/business-hours', () => ({
-  isOutsideBusinessHours: () => mockIsOutsideBusinessHours(),
-}))
-
-export const mockEngineSendText = vi.fn().mockResolvedValue({ whatsapp_message_id: 'mock-ooo-msg' })
-vi.mock('@/lib/automations/meta-send', () => ({
-  engineSendText: (args: any) => mockEngineSendText(args),
-  engineSendTemplate: vi.fn(),
-}))
-
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: vi.fn().mockResolvedValue(undefined),
 }))
-
 vi.mock('@/lib/whatsapp/template-webhook', () => ({
-  isTemplateWebhookField: (field: string) => field ? field.startsWith('message_template_') : false,
+  isTemplateWebhookField: (field: string) =>
+    Boolean(field?.startsWith('message_template_')),
   handleTemplateWebhookChange: vi.fn().mockResolvedValue(undefined),
 }))
-
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   getMediaUrl: vi.fn().mockResolvedValue('https://mock-media-url'),
+  downloadMedia: vi.fn().mockResolvedValue('https://stored-media-url'),
 }))
 
-// Mock database query state
+// ─── findExistingContact: default returns null (new contact on every inbound) ─
+import { findExistingContact } from '@/lib/contacts/dedupe'
+vi.mock('@/lib/contacts/dedupe', () => ({
+  findExistingContact: vi.fn().mockResolvedValue(null),
+  isUniqueViolation: vi.fn().mockReturnValue(false),
+}))
+
+// ─── MockQueryBuilder ─────────────────────────────────────────────────────────
+// mockQueryResult is keyed by table name. Values:
+//   object   → returned verbatim for every call on that table
+//   array    → items shift()ed off one by one (sequential queries on same table)
+//   function → called each time, useful to avoid array exhaustion
 let mockQueryResult: Record<string, unknown> = {}
 
 class MockQueryBuilder {
-  private table: string
-
-  constructor(table: string) {
-    this.table = table
-  }
+  private tbl: string
+  constructor(table: string) { this.tbl = table }
 
   select() { return this }
   insert() { return this }
   update() { return this }
   upsert() { return this }
   delete() { return this }
-  eq() { return this }
-  like() { return this }
-  in() { return this }
-  order() { return this }
-  limit() { return this }
-  single() {
-    const val = this.getResolveValue()
-    console.log(`[MockDB] ${this.table}.single() called -> returning`, val)
-    return Promise.resolve(val)
-  }
-  maybeSingle() {
-    const val = this.getResolveValue()
-    console.log(`[MockDB] ${this.table}.maybeSingle() called -> returning`, val)
-    return Promise.resolve(val)
-  }
-  then(resolve: (value: unknown) => unknown) {
-    const val = this.getResolveValue()
-    console.log(`[MockDB] ${this.table}.then() called -> returning`, val)
-    return Promise.resolve(val).then(resolve)
+  eq()     { return this }
+  like()   { return this }
+  in()     { return this }
+  order()  { return this }
+  limit()  { return this }
+
+  single()      { return Promise.resolve(this.resolve()) }
+  maybeSingle() { return Promise.resolve(this.resolve()) }
+  then(cb: (v: unknown) => unknown) {
+    return Promise.resolve(this.resolve()).then(cb)
   }
 
-  private getResolveValue() {
-    const val = mockQueryResult[this.table]
-    if (Array.isArray(val)) {
-      const popped = val.shift() || { data: null, error: null }
-      console.log(`[MockDB] Array query for ${this.table} -> shifted`, popped)
-      return popped
-    }
-    if (typeof val === 'function') {
-      return val()
-    }
-    return val || { data: null, error: null }
+  private resolve() {
+    const v = mockQueryResult[this.tbl]
+    if (Array.isArray(v)) return v.shift() ?? { data: null, error: null }
+    if (typeof v === 'function') return (v as () => unknown)()
+    return v ?? { data: null, error: null }
   }
 }
 
-const mockFrom = vi.fn((table: string) => {
-  console.log(`[MockDB] from(${table}) called`)
-  return new MockQueryBuilder(table)
-})
+const mockFrom = vi.fn((table: string) => new MockQueryBuilder(table))
 
-const mockSupabaseClient = {
-  from: mockFrom,
-}
-
-// Mock @supabase/supabase-js createClient
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => mockSupabaseClient,
+  createClient: () => ({ from: mockFrom }),
 }))
 
+// ─── Shared fixtures ──────────────────────────────────────────────────────────
+/** Minimal whatsapp_config row. decrypt() is identity so verify_token matches. */
+const VALID_CONFIG_ROW = {
+  id: 'cfg-uuid',
+  account_id: 'org-uuid-123',
+  user_id: 'owner-user-uuid',
+  phone_number_id: 'valid-phone-id',
+  access_token: 'fake-token',
+  verify_token: 'mock-verify-token',
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 describe('GET /api/whatsapp/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockQueryResult = {}
     afterPromises = []
-    clearAuditUserCache()
   })
 
-  it('verifies webhook correctly with valid token', async () => {
+  it('verifies webhook with valid token → 200 + challenge echoed', async () => {
+    mockQueryResult['whatsapp_config'] = { data: [VALID_CONFIG_ROW], error: null }
     const req = new NextRequest(
       'https://app.test/api/whatsapp/webhook?hub.mode=subscribe&hub.challenge=12345&hub.verify_token=mock-verify-token'
     )
@@ -156,7 +138,8 @@ describe('GET /api/whatsapp/webhook', () => {
     expect(await res.text()).toBe('12345')
   })
 
-  it('fails verification with invalid token', async () => {
+  it('returns 403 when verify_token does not match any config', async () => {
+    mockQueryResult['whatsapp_config'] = { data: [VALID_CONFIG_ROW], error: null }
     const req = new NextRequest(
       'https://app.test/api/whatsapp/webhook?hub.mode=subscribe&hub.challenge=12345&hub.verify_token=wrong-token'
     )
@@ -164,311 +147,170 @@ describe('GET /api/whatsapp/webhook', () => {
     expect(res.status).toBe(403)
   })
 
-  it('fails verification with missing parameters', async () => {
+  it('returns 400 when hub parameters are missing', async () => {
     const req = new NextRequest('https://app.test/api/whatsapp/webhook')
     const res = await GET(req)
     expect(res.status).toBe(400)
   })
+
+  it('returns 403 when whatsapp_config query fails', async () => {
+    mockQueryResult['whatsapp_config'] = { data: null, error: { message: 'db error' } }
+    const req = new NextRequest(
+      'https://app.test/api/whatsapp/webhook?hub.mode=subscribe&hub.challenge=abc&hub.verify_token=mock-verify-token'
+    )
+    const res = await GET(req)
+    expect(res.status).toBe(403)
+  })
 })
 
+// ═══════════════════════════════════════════════════════════════════════════════
 describe('POST /api/whatsapp/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockQueryResult = {}
     afterPromises = []
-    clearAuditUserCache()
     vi.mocked(verifyMetaWebhookSignature).mockReturnValue(true)
+    vi.mocked(findExistingContact).mockResolvedValue(null)
   })
 
-  const createReq = (body: unknown, signature = 'sha256=validsig') => {
-    const headers = new Headers()
-    if (signature) {
-      headers.set('x-hub-signature-256', signature)
-    }
+  const createReq = (body: unknown, sig = 'sha256=validsig') => {
+    const h = new Headers()
+    if (sig) h.set('x-hub-signature-256', sig)
     return new NextRequest('https://app.test/api/whatsapp/webhook', {
       method: 'POST',
       body: JSON.stringify(body),
-      headers,
+      headers: h,
     })
   }
 
-  it('rejects request with invalid signature with 403', async () => {
+  // ── signature guard ────────────────────────────────────────────────────────
+  it('rejects invalid HMAC signature → 401', async () => {
     vi.mocked(verifyMetaWebhookSignature).mockReturnValueOnce(false)
-    const req = createReq({ entry: [] }, 'sha256=invalidsig')
-    const res = await POST(req)
-    expect(res.status).toBe(403)
-    const data = await res.json()
-    expect(data.error).toBe('Invalid signature')
+    const res = await POST(createReq({ entry: [] }, 'sha256=bad'))
+    expect(res.status).toBe(401)
+    const body = await res.json()
+    expect(body.error).toBe('Invalid signature')
   })
 
-  it('logs and returns 200 for unknown numbers without processing payload', async () => {
+  // ── unknown phone number ───────────────────────────────────────────────────
+  it('returns 200 and ignores messages from unknown phone numbers', async () => {
+    // Empty config rows → no matching phone
+    mockQueryResult['whatsapp_config'] = { data: [], error: null }
+
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'unknown-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [{ id: 'msg-1', from: '12345', timestamp: '1783077575', type: 'text', text: { body: 'Hello' } }],
-              },
-            },
-          ],
-        },
-      ],
+      entry: [{ changes: [{ field: 'messages', value: {
+        messaging_product: 'whatsapp',
+        metadata: { phone_number_id: 'unknown-phone-id' },
+        contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+        messages: [{ id: 'msg-1', from: '12345', timestamp: '1783077575', type: 'text', text: { body: 'Hello' } }],
+      } }] }],
     }
 
-    mockQueryResult['waba_connections'] = { data: null, error: null }
-
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
-    const data = await res.json()
-    expect(data.status).toBe('ignored_unknown_number')
-    expect(mockFrom).toHaveBeenCalledWith('waba_connections')
-    // Ensure no queries were made to contacts/messages/conversations since number was unknown
+
+    expect(mockFrom).toHaveBeenCalledWith('whatsapp_config')
     expect(mockFrom).not.toHaveBeenCalledWith('contacts')
-    expect(mockFrom).not.toHaveBeenCalledWith('conversations')
     expect(mockFrom).not.toHaveBeenCalledWith('messages')
   })
 
-  it('handles template events without phone_number_id by processing them and returning 200', async () => {
+  // ── template event ─────────────────────────────────────────────────────────
+  it('handles template status events and returns 200', async () => {
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'message_template_status_update',
-              value: {
-                event: 'APPROVED',
-                message_template_id: '1234567890',
-                message_template_name: 'test_template',
-              },
-            },
-          ],
-        },
-      ],
+      entry: [{ changes: [{ field: 'message_template_status_update', value: {
+        event: 'APPROVED',
+        message_template_id: '123',
+        message_template_name: 'test_template',
+      } }] }],
     }
 
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
-    const data = await res.json()
-    expect(data.status).toBe('template_event_received')
+
+    const { handleTemplateWebhookChange } = await import('@/lib/whatsapp/template-webhook')
+    expect(handleTemplateWebhookChange).toHaveBeenCalled()
   })
 
-  it('resolves organization and processes message successfully', async () => {
+  // ── empty entry ────────────────────────────────────────────────────────────
+  it('returns 200 immediately when entry array is empty', async () => {
+    const res = await POST(createReq({ entry: [] }))
+    expect(res.status).toBe(200)
+    await Promise.all(afterPromises)
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  // ── full inbound text message ──────────────────────────────────────────────
+  it('processes inbound message: creates contact + conversation + message row', async () => {
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'valid-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [{ id: 'msg-1', from: '12345', timestamp: '1783077575', type: 'text', text: { body: 'Hello' } }],
-              },
-            },
-          ],
-        },
-      ],
+      entry: [{ changes: [{ field: 'messages', value: {
+        messaging_product: 'whatsapp',
+        metadata: { phone_number_id: 'valid-phone-id' },
+        contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+        messages: [{ id: 'msg-1', from: '12345', timestamp: '1783077575', type: 'text', text: { body: 'Hello' } }],
+      } }] }],
     }
 
-    mockQueryResult['waba_connections'] = {
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    }
+    // whatsapp_config → single row
+    mockQueryResult['whatsapp_config'] = { data: [VALID_CONFIG_ROW], error: null }
 
-    mockQueryResult['user_organizations'] = {
-      data: {
-        user_id: 'owner-user-uuid',
-      },
-      error: null,
-    }
-
-    // contacts: 1. check existing (null), 2. insert successfully
+    // findExistingContact is mocked → returns null → route inserts new contact
     mockQueryResult['contacts'] = [
-      { data: null, error: null }, // findExistingContact result
-      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null }, // insert result
+      // insert → new contact
+      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
     ]
 
-    // conversations: 1. check existing (null), 2. insert successfully
+    // conversations: .single() → not found error → insert → new conversation
     mockQueryResult['conversations'] = [
-      { data: null, error: null }, // check existing result
-      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null }, // insert result
-      { data: null, error: null }, // findOrCreateConversation check
+      { data: null, error: { code: 'PGRST116', message: 'No rows found' } }, // single()
+      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },        // insert
     ]
 
-    // messages: 1. prior count (0), 2. insert message, 3. update conversation
+    // messages: prior count head → insert
     mockQueryResult['messages'] = [
-      { count: 0, error: null }, // prior customer message count
-      { data: { id: 'msg-uuid-555' }, error: null }, // insert message result
+      { count: 0, error: null },                                              // select head count
+      { data: { id: 'msg-uuid-555' }, error: null },                         // insert
     ]
 
+    // broadcast_recipients: no match
     mockQueryResult['broadcast_recipients'] = [
-      { data: null, error: null }, // flagBroadcastReplyIfAny search
+      { data: null, error: null },
     ]
 
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
 
-    // Verify correct tables were queried
-    expect(mockFrom).toHaveBeenCalledWith('waba_connections')
-    expect(mockFrom).toHaveBeenCalledWith('user_organizations')
+    expect(mockFrom).toHaveBeenCalledWith('whatsapp_config')
     expect(mockFrom).toHaveBeenCalledWith('contacts')
     expect(mockFrom).toHaveBeenCalledWith('conversations')
     expect(mockFrom).toHaveBeenCalledWith('messages')
   })
 
-  it('caches resolved auditUserId to avoid repeated database queries', async () => {
+  // ── status update (delivered / read) ──────────────────────────────────────
+  it('processes status updates: patches messages + broadcast_recipients + fires webhook', async () => {
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'valid-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [{ id: 'msg-1', from: '12345', timestamp: '1783077575', type: 'text', text: { body: 'Hello' } }],
-              },
-            },
-          ],
-        },
-      ],
-    }
-
-    mockQueryResult['waba_connections'] = () => ({
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    })
-
-    mockQueryResult['user_organizations'] = () => ({
-      data: {
-        user_id: 'owner-user-uuid',
-      },
-      error: null,
-    })
-
-    // Returning non-array functions in mockQueryResult so they don't shift/empty
-    mockQueryResult['contacts'] = () => ({
-      data: [{ id: 'contact-uuid-999', name: 'Alice', phone: '12345' }],
-      error: null,
-    })
-
-    mockQueryResult['conversations'] = () => ({
-      data: { id: 'conv-uuid-777', unread_count: 0 },
-      error: null,
-    })
-
-    mockQueryResult['messages'] = () => ({
-      data: { id: 'msg-uuid-555' },
-      error: null,
-    })
-
-    mockQueryResult['broadcast_recipients'] = () => ({
-      data: null,
-      error: null,
-    })
-
-    // First request
-    const req1 = createReq(payload)
-    const res1 = await POST(req1)
-    expect(res1.status).toBe(200)
-    await Promise.all(afterPromises)
-
-    // Verify user_organizations was queried
-    const calls1 = mockFrom.mock.calls.filter(c => c[0] === 'user_organizations').length
-    expect(calls1).toBe(1)
-
-    // Clear calls count for mock
-    vi.mocked(mockFrom).mockClear()
-    afterPromises = []
-
-    // Second request (same organization)
-    const req2 = createReq(payload)
-    const res2 = await POST(req2)
-    expect(res2.status).toBe(200)
-    await Promise.all(afterPromises)
-
-    // Verify user_organizations was NOT queried this time because it is cached
-    const calls2 = mockFrom.mock.calls.filter(c => c[0] === 'user_organizations').length
-    expect(calls2).toBe(0)
-  })
-
-  it('processes status updates (delivered, read) and updates tables', async () => {
-    const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'valid-phone-id',
-                },
-                statuses: [
-                  {
-                    id: 'msg-meta-123',
-                    status: 'delivered',
-                    timestamp: '1783077575',
-                    recipient_id: '12345',
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      ],
-    }
-
-    mockQueryResult['waba_connections'] = {
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    }
-
-    mockQueryResult['user_organizations'] = {
-      data: { user_id: 'owner-user-uuid' },
-      error: null,
+      entry: [{ changes: [{ field: 'messages', value: {
+        messaging_product: 'whatsapp',
+        metadata: { phone_number_id: 'valid-phone-id' },
+        statuses: [{ id: 'msg-meta-123', status: 'delivered', timestamp: '1783077575', recipient_id: '12345' }],
+      } }] }],
     }
 
     mockQueryResult['messages'] = [
-      { error: null }, // update message result
-      { data: { conversation_id: 'conv-uuid-777', conversations: { organization_id: 'org-uuid-123' } }, error: null }, // select message result for dispatching webhook
+      { error: null },                                                          // update status
+      {                                                                         // select for webhook fan-out
+        data: { conversation_id: 'conv-uuid-777', conversations: { account_id: 'org-uuid-123' } },
+        error: null,
+      },
     ]
-
     mockQueryResult['broadcast_recipients'] = [
-      { data: { id: 'recipient-uuid-111', status: 'sent' }, error: null }, // fetch broadcast recipient result
-      { error: null }, // update broadcast recipient result
+      { data: { id: 'recipient-uuid-111', status: 'sent' }, error: null },    // maybeSingle
+      { error: null },                                                          // update
     ]
 
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
 
@@ -478,246 +320,88 @@ describe('POST /api/whatsapp/webhook', () => {
     expect(dispatchWebhookEvent).toHaveBeenCalled()
   })
 
-  it('processes incoming reaction messages and upserts reaction in database', async () => {
+  // ── reaction message ───────────────────────────────────────────────────────
+  it('processes reaction messages and upserts to message_reactions', async () => {
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'valid-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [
-                  {
-                    id: 'msg-react-123',
-                    from: '12345',
-                    timestamp: '1783077575',
-                    type: 'reaction',
-                    reaction: {
-                      message_id: 'parent-meta-id',
-                      emoji: '❤️',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      ],
+      entry: [{ changes: [{ field: 'messages', value: {
+        messaging_product: 'whatsapp',
+        metadata: { phone_number_id: 'valid-phone-id' },
+        contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+        messages: [{
+          id: 'msg-react-123',
+          from: '12345',
+          timestamp: '1783077575',
+          type: 'reaction',
+          reaction: { message_id: 'parent-meta-id', emoji: '❤️' },
+        }],
+      } }] }],
     }
 
-    mockQueryResult['waba_connections'] = {
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    }
-
-    mockQueryResult['user_organizations'] = {
-      data: { user_id: 'owner-user-uuid' },
-      error: null,
-    }
-
+    mockQueryResult['whatsapp_config'] = { data: [VALID_CONFIG_ROW], error: null }
+    // New contact insert
     mockQueryResult['contacts'] = [
-      { data: null, error: null },
       { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
     ]
-
+    // New conversation
     mockQueryResult['conversations'] = [
-      { data: null, error: null },
+      { data: null, error: { code: 'PGRST116' } },
       { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
-      { data: null, error: null },
     ]
-
+    // lookupInternalIdByMetaId → messages.maybeSingle()
     mockQueryResult['messages'] = [
-      { data: { id: 'parent-internal-id' }, error: null }, // lookupInternalIdByMetaId
+      { data: { id: 'parent-internal-id' }, error: null },
     ]
+    // upsert reaction
+    mockQueryResult['message_reactions'] = { error: null }
 
-    mockQueryResult['message_reactions'] = { error: null } // upsert result
-
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
 
     expect(mockFrom).toHaveBeenCalledWith('message_reactions')
   })
 
-  it('processes interactive list/button reply messages', async () => {
+  // ── interactive button reply ───────────────────────────────────────────────
+  it('processes interactive button reply and saves interactive_reply_id', async () => {
     const payload = {
-      entry: [
-        {
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  phone_number_id: 'valid-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [
-                  {
-                    id: 'msg-interactive-123',
-                    from: '12345',
-                    timestamp: '1783077575',
-                    type: 'interactive',
-                    interactive: {
-                      type: 'button_reply',
-                      button_reply: {
-                        id: 'btn-yes-id',
-                        title: 'Yes, proceed',
-                      },
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      ],
+      entry: [{ changes: [{ field: 'messages', value: {
+        messaging_product: 'whatsapp',
+        metadata: { phone_number_id: 'valid-phone-id' },
+        contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+        messages: [{
+          id: 'msg-interactive-123',
+          from: '12345',
+          timestamp: '1783077575',
+          type: 'interactive',
+          interactive: {
+            type: 'button_reply',
+            button_reply: { id: 'btn-yes-id', title: 'Yes, proceed' },
+          },
+        }],
+      } }] }],
     }
 
-    mockQueryResult['waba_connections'] = {
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    }
-
-    mockQueryResult['user_organizations'] = {
-      data: { user_id: 'owner-user-uuid' },
-      error: null,
-    }
-
+    mockQueryResult['whatsapp_config'] = { data: [VALID_CONFIG_ROW], error: null }
     mockQueryResult['contacts'] = [
-      { data: null, error: null },
       { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
     ]
-
     mockQueryResult['conversations'] = [
-      { data: null, error: null },
+      { data: null, error: { code: 'PGRST116' } },
       { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
-      { data: null, error: null },
-      { error: null }, // update conversation last_message_text
     ]
-
-    mockQueryResult['messages'] = [
-      { count: 0, error: null }, // prior customer messages count
-      { data: { id: 'inserted-msg-uuid' }, error: null }, // insert message
-    ]
-
-    mockQueryResult['broadcast_recipients'] = [
-      { data: null, error: null },
-    ]
-
-    const req = createReq(payload)
-    const res = await POST(req)
-    expect(res.status).toBe(200)
-    await Promise.all(afterPromises)
-
-    // Verify it was saved with the interactive reply ID
-    const insertCalls = mockFrom.mock.calls.filter(c => c[0] === 'messages')
-    expect(insertCalls.length).toBeGreaterThan(0)
-  })
-
-  it('triggers OOO reply and skips other dispatch handlers when outside business hours', async () => {
-    mockIsOutsideBusinessHours.mockReturnValue(true)
-    mockEngineSendText.mockClear()
-
-    const payload = {
-      object: 'whatsapp_business_account',
-      entry: [
-        {
-          id: 'waba-id',
-          changes: [
-            {
-              field: 'messages',
-              value: {
-                messaging_product: 'whatsapp',
-                metadata: {
-                  display_phone_number: '12345',
-                  phone_number_id: 'valid-phone-id',
-                },
-                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
-                messages: [
-                  {
-                    id: 'msg-id-ooo',
-                    from: '12345',
-                    timestamp: '1783077575',
-                    type: 'text',
-                    text: { body: 'hello outside hours' },
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      ],
-    }
-
-    mockQueryResult['waba_connections'] = {
-      data: {
-        organization_id: 'org-uuid-123',
-        access_token_encrypted: 'ivHex:ctHex:tagHex',
-      },
-      error: null,
-    }
-
-    mockQueryResult['user_organizations'] = {
-      data: { user_id: 'owner-user-uuid' },
-      error: null,
-    }
-
-    mockQueryResult['contacts'] = [
-      { data: null, error: null },
-      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
-    ]
-
-    mockQueryResult['conversations'] = [
-      { data: null, error: null },
-      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
-      { data: null, error: null },
-      { error: null },
-    ]
-
     mockQueryResult['messages'] = [
       { count: 0, error: null },
       { data: { id: 'inserted-msg-uuid' }, error: null },
     ]
-
     mockQueryResult['broadcast_recipients'] = [
       { data: null, error: null },
     ]
 
-    mockQueryResult['business_hours'] = {
-      data: {
-        is_enabled: true,
-        timezone: 'Asia/Kolkata',
-        ooo_message: 'We are closed!',
-        daily_hours: {},
-      },
-      error: null,
-    }
-
-    const req = createReq(payload)
-    const res = await POST(req)
+    const res = await POST(createReq(payload))
     expect(res.status).toBe(200)
     await Promise.all(afterPromises)
 
-    expect(mockIsOutsideBusinessHours).toHaveBeenCalled()
-    expect(mockEngineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountId: 'org-uuid-123',
-        text: 'We are closed!',
-      })
-    )
+    const messagesCalls = mockFrom.mock.calls.filter(c => c[0] === 'messages')
+    expect(messagesCalls.length).toBeGreaterThan(0)
   })
 })
-

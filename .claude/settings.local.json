@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(rm -rf .next)",
+      "Bash(npm run *)",
+      "Bash(dir F:\\\\WhatsApp CRM\\\\public *)",
+      "Bash(dir \"F:\\\\WhatsApp CRM\\\\public\\\\*.png\")",
+      "Bash(dir \"F:\\\\WhatsApp CRM\\\\public\\\\*.ico\")",
+      "Bash(dir \"F:\\\\WhatsApp CRM\\\\app\\\\*\")",
+      "Bash(del *)"
+    ]
+  }
+}

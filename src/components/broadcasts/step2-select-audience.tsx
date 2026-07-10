@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Users,
   Tags,
@@ -23,16 +24,16 @@ interface SegmentFilter {
   noReplyDays?: number;
 }
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
-type CustomFieldOperator = 'is' | 'is_not' | 'contains';
+export type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
+export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
-interface CustomFieldFilter {
+export interface CustomFieldFilter {
   fieldId: string;
   operator: CustomFieldOperator;
   value: string;
 }
 
-interface AudienceConfig {
+export interface AudienceConfig {
   type: AudienceType;
   tagIds?: string[];
   customField?: CustomFieldFilter;

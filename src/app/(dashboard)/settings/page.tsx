@@ -21,6 +21,8 @@ import { IntegrationsPanel } from '@/components/settings/integrations-panel';
 import { CannedResponsesSettings } from '@/components/settings/canned-responses-settings';
 import { WhatsAppWidgetSettings } from '@/components/settings/whatsapp-widget-settings';
 import { BusinessHoursSettings } from '@/components/settings/business-hours-settings';
+import { AccountTypePanel } from '@/components/settings/account-type-panel';
+import { ResellerPanel } from '@/components/settings/reseller-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -71,6 +73,8 @@ export default function SettingsPage() {
     billing: <BillingSettings />,
     api: <ApiKeysSettings />,
     integrations: <IntegrationsPanel />,
+    account_type: <AccountTypePanel />,
+    reseller: <ResellerPanel />,
   };
 
   return (
