@@ -661,27 +661,57 @@ async function processMessage(
 
   await flagBroadcastReplyIfAny(organizationId, contactRecord.id)
 
-  const flowResult = await dispatchInboundToFlows({
-    accountId: organizationId,
-    userId: auditUserId,
-    contactId: contactRecord.id,
-    conversationId: conversation.id,
-    message:
-      interactiveReplyId
-        ? {
-            kind: 'interactive_reply',
-            reply_id: interactiveReplyId,
-            reply_title: contentText ?? '',
-            meta_message_id: message.id,
-          }
-        : {
-            kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
-            meta_message_id: message.id,
-          },
-    isFirstInboundMessage,
-  })
-  const flowConsumed = flowResult.consumed
+  // Check Business Hours and trigger OOO Auto-Reply if configured
+  let isOOO = false
+  try {
+    const { data: bh } = await supabaseAdmin()
+      .from('business_hours')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
+    if (bh && bh.is_enabled) {
+      const { isOutsideBusinessHours } = await import('@/lib/business-hours')
+      if (isOutsideBusinessHours(new Date(), bh.timezone, bh.daily_hours)) {
+        isOOO = true
+        const { engineSendText } = await import('@/lib/automations/meta-send')
+        await engineSendText({
+          accountId: organizationId,
+          userId: auditUserId,
+          conversationId: conversation.id,
+          contactId: contactRecord.id,
+          text: bh.ooo_message,
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[business-hours] OOO check/reply failed:', err)
+  }
+
+  let flowConsumed = false
+  if (!isOOO) {
+    const flowResult = await dispatchInboundToFlows({
+      accountId: organizationId,
+      userId: auditUserId,
+      contactId: contactRecord.id,
+      conversationId: conversation.id,
+      message:
+        interactiveReplyId
+          ? {
+              kind: 'interactive_reply',
+              reply_id: interactiveReplyId,
+              reply_title: contentText ?? '',
+              meta_message_id: message.id,
+            }
+          : {
+              kind: 'text',
+              text: contentText ?? message.text?.body ?? '',
+              meta_message_id: message.id,
+            },
+      isFirstInboundMessage,
+    })
+    flowConsumed = flowResult.consumed
+  }
 
   const inboundText = contentText ?? message.text?.body ?? ''
   const automationTriggers: (
@@ -695,25 +725,28 @@ async function processMessage(
   }
   if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
   if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
-  for (const triggerType of automationTriggers) {
-    runAutomationsForTrigger({
-      accountId: organizationId,
-      triggerType,
-      contactId: contactRecord.id,
-      context: {
-        message_text: inboundText,
-        conversation_id: conversation.id,
-      },
-    }).catch((err) => console.error('[automations] dispatch failed:', err))
-  }
 
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
-    await dispatchInboundToAiReply({
-      accountId: organizationId,
-      conversationId: conversation.id,
-      contactId: contactRecord.id,
-      configOwnerUserId: auditUserId,
-    })
+  if (!isOOO) {
+    for (const triggerType of automationTriggers) {
+      runAutomationsForTrigger({
+        accountId: organizationId,
+        triggerType,
+        contactId: contactRecord.id,
+        context: {
+          message_text: inboundText,
+          conversation_id: conversation.id,
+        },
+      }).catch((err) => console.error('[automations] dispatch failed:', err))
+    }
+
+    if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
+      await dispatchInboundToAiReply({
+        accountId: organizationId,
+        conversationId: conversation.id,
+        contactId: contactRecord.id,
+        configOwnerUserId: auditUserId,
+      })
+    }
   }
 
   await dispatchWebhookEvent(supabaseAdmin(), organizationId, 'message.received', {

@@ -15,7 +15,15 @@ import {
   X,
 } from 'lucide-react';
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+interface SegmentFilter {
+  tagIds?: string[];
+  excludeTagIds?: string[];
+  pipelineStageId?: string;
+  idleDays?: number;
+  noReplyDays?: number;
+}
+
+type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
 interface CustomFieldFilter {
@@ -29,6 +37,7 @@ interface AudienceConfig {
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
+  segment?: SegmentFilter;
   excludeTagIds?: string[];
 }
 
@@ -69,6 +78,12 @@ const audienceOptions: {
     description: 'Upload a list of phone numbers',
     icon: Upload,
   },
+  {
+    type: 'segment',
+    label: 'Dynamic Segment',
+    description: 'Combine tags, stages, and activity rules',
+    icon: Filter,
+  },
 ];
 
 const OPERATOR_OPTIONS: { value: CustomFieldOperator; label: string }[] = [
@@ -106,6 +121,9 @@ export function Step2SelectAudience({
     fetchTags();
   }, []);
 
+  const [pipelineStages, setPipelineStages] = useState<any[]>([]);
+  const [loadingStages, setLoadingStages] = useState(false);
+
   // Lazy-load custom fields only when that audience type is active.
   useEffect(() => {
     if (audience.type !== 'custom_field') return;
@@ -123,6 +141,23 @@ export function Step2SelectAudience({
       }
     }
     fetchFields();
+  }, [audience.type]);
+
+  useEffect(() => {
+    if (audience.type !== 'segment') return;
+    async function fetchStages() {
+      setLoadingStages(true);
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('pipeline_stages')
+          .select('id, name, pipeline:pipelines(name)');
+        setPipelineStages(data ?? []);
+      } finally {
+        setLoadingStages(false);
+      }
+    }
+    fetchStages();
   }, [audience.type]);
 
   const fetchEstimatedCount = useCallback(async () => {
@@ -167,6 +202,97 @@ export function Step2SelectAudience({
       ) {
         setEstimatedCount(audience.csvContacts.length);
         return;
+      } else if (audience.type === 'segment') {
+        const seg = audience.segment ?? {};
+        let contactIds: Set<string> | null = null;
+
+        // Tags inclusion
+        if (seg.tagIds && seg.tagIds.length > 0) {
+          const { data } = await supabase
+            .from('contact_tags')
+            .select('contact_id')
+            .in('tag_id', seg.tagIds);
+          contactIds = new Set((data ?? []).map((r) => r.contact_id));
+        }
+
+        // Pipeline stage
+        if (seg.pipelineStageId) {
+          const { data } = await supabase
+            .from('deals')
+            .select('contact_id')
+            .eq('stage_id', seg.pipelineStageId)
+            .eq('status', 'active');
+          const dealsSet = new Set((data ?? []).map((d) => d.contact_id));
+          if (contactIds === null) contactIds = dealsSet;
+          else contactIds = new Set([...contactIds].filter((id) => dealsSet.has(id)));
+        }
+
+        // Idle days
+        if (seg.idleDays && seg.idleDays > 0) {
+          const cutoff = new Date(Date.now() - seg.idleDays * 24 * 60 * 60 * 1000).toISOString();
+          const { data } = await supabase
+            .from('conversations')
+            .select('contact_id')
+            .gte('last_message_at', cutoff);
+          const activeSet = new Set((data ?? []).map((c) => c.contact_id));
+          if (contactIds === null) {
+            const { data: allC } = await supabase.from('contacts').select('id');
+            contactIds = new Set((allC ?? []).map((c) => c.id).filter((id) => !activeSet.has(id)));
+          } else {
+            contactIds = new Set([...contactIds].filter((id) => !activeSet.has(id)));
+          }
+        }
+
+        // No reply days
+        if (seg.noReplyDays && seg.noReplyDays > 0) {
+          const cutoff = new Date(Date.now() - seg.noReplyDays * 24 * 60 * 60 * 1000).toISOString();
+          const { data: oldConvs } = await supabase
+            .from('conversations')
+            .select('id, contact_id')
+            .lt('last_message_at', cutoff);
+          const eligible = new Set<string>();
+          if (oldConvs && oldConvs.length > 0) {
+            const convIds = oldConvs.map((c) => c.id);
+            const { data: msgs } = await supabase
+              .from('messages')
+              .select('conversation_id, sender_type, created_at')
+              .in('conversation_id', convIds)
+              .order('created_at', { ascending: false });
+            
+            const latestMsgMap = new Map<string, string>();
+            for (const msg of msgs ?? []) {
+              if (!latestMsgMap.has(msg.conversation_id)) {
+                latestMsgMap.set(msg.conversation_id, msg.sender_type);
+              }
+            }
+
+            for (const c of oldConvs) {
+              const latestSender = latestMsgMap.get(c.id);
+              if (latestSender === 'agent' || latestSender === 'bot') {
+                eligible.add(c.contact_id);
+              }
+            }
+          }
+          if (contactIds === null) contactIds = eligible;
+          else contactIds = new Set([...contactIds].filter((id) => eligible.has(id)));
+        }
+
+        // Segment-level tag exclusions
+        if (seg.excludeTagIds && seg.excludeTagIds.length > 0) {
+          const { data } = await supabase
+            .from('contact_tags')
+            .select('contact_id')
+            .in('tag_id', seg.excludeTagIds);
+          const exSet = new Set((data ?? []).map((r) => r.contact_id));
+          if (contactIds === null) {
+            const { data: allC } = await supabase.from('contacts').select('id');
+            contactIds = new Set((allC ?? []).map((c) => c.id).filter((id) => !exSet.has(id)));
+          } else {
+            contactIds = new Set([...contactIds].filter((id) => !exSet.has(id)));
+          }
+        }
+
+        baseIds = contactIds || new Set();
       } else {
         // Partially-configured audience — wait for the user to finish.
         setEstimatedCount(null);
@@ -205,6 +331,7 @@ export function Step2SelectAudience({
     audience.customField,
     audience.csvContacts,
     audience.excludeTagIds,
+    audience.segment,
   ]);
 
   useEffect(() => {
@@ -237,6 +364,27 @@ export function Step2SelectAudience({
     onUpdate({ ...audience, customField: { ...prev, ...patch } });
   }
 
+  function updateSegment(patch: Partial<SegmentFilter>) {
+    const prev = audience.segment ?? {};
+    onUpdate({ ...audience, segment: { ...prev, ...patch } });
+  }
+
+  function toggleSegmentTag(tagId: string) {
+    const current = audience.segment?.tagIds ?? [];
+    const updated = current.includes(tagId)
+      ? current.filter((id) => id !== tagId)
+      : [...current, tagId];
+    updateSegment({ tagIds: updated });
+  }
+
+  function toggleSegmentExcludeTag(tagId: string) {
+    const current = audience.segment?.excludeTagIds ?? [];
+    const updated = current.includes(tagId)
+      ? current.filter((id) => id !== tagId)
+      : [...current, tagId];
+    updateSegment({ excludeTagIds: updated });
+  }
+
   const isValid =
     audience.type === 'all' ||
     (audience.type === 'tags' && audience.tagIds && audience.tagIds.length > 0) ||
@@ -245,7 +393,8 @@ export function Step2SelectAudience({
       audience.customField.value.length > 0) ||
     (audience.type === 'csv' &&
       audience.csvContacts &&
-      audience.csvContacts.length > 0);
+      audience.csvContacts.length > 0) ||
+    audience.type === 'segment';
 
   return (
     <div className="space-y-6">
@@ -276,6 +425,8 @@ export function Step2SelectAudience({
                       : undefined,
                   csvContacts:
                     option.type === 'csv' ? audience.csvContacts : undefined,
+                  segment:
+                    option.type === 'segment' ? audience.segment ?? {} : undefined,
                 })
               }
               className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
@@ -387,6 +538,141 @@ export function Step2SelectAudience({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {audience.type === 'segment' && (
+        <div className="space-y-4 rounded-xl border border-border bg-card/50 p-4">
+          <p className="text-sm font-semibold text-foreground">Dynamic Segment Rules</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Combine multiple criteria to build a highly targeted campaign audience. If a section is left unconfigured, it will be skipped.
+          </p>
+
+          {/* 1. Tag Inclusions */}
+          <div className="space-y-2 border-t border-border/40 pt-3">
+            <Label className="text-xs font-semibold text-foreground">Include Contacts Tagged With</Label>
+            {loadingTags ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : tags.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">No tags defined.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => {
+                  const isSelected = audience.segment?.tagIds?.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleSegmentTag(tag.id)}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                        isSelected
+                          ? 'border-primary/45 bg-primary/10 text-primary'
+                          : 'border-border bg-muted text-muted-foreground hover:border-border'
+                      }`}
+                    >
+                      <span className="mr-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Deals / Pipeline Stage */}
+          <div className="space-y-2 border-t border-border/40 pt-3">
+            <Label className="text-xs font-semibold text-foreground">Filter by Active Deal Stage</Label>
+            {loadingStages ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <select
+                value={audience.segment?.pipelineStageId ?? ''}
+                onChange={(e) => updateSegment({ pipelineStageId: e.target.value || undefined })}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Any pipeline stage (No filter)</option>
+                {pipelineStages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.pipeline?.name ? `${stage.pipeline.name} — ` : ''}{stage.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* 3. Interaction / Activity History */}
+          <div className="grid grid-cols-1 gap-4 border-t border-border/40 pt-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Idle Duration (No messages)</span>
+                {audience.segment?.idleDays ? (
+                  <span className="text-[10px] text-primary">{audience.segment.idleDays} days</span>
+                ) : null}
+              </Label>
+              <select
+                value={audience.segment?.idleDays ?? 0}
+                onChange={(e) => updateSegment({ idleDays: Number(e.target.value) || undefined })}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value={0}>No idle filter</option>
+                <option value={1}>Idle for 1 day or more</option>
+                <option value={3}>Idle for 3 days or more</option>
+                <option value={7}>Idle for 7 days or more</option>
+                <option value={14}>Idle for 14 days or more</option>
+                <option value={30}>Idle for 30 days or more</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>No Reply From Customer</span>
+                {audience.segment?.noReplyDays ? (
+                  <span className="text-[10px] text-primary">{audience.segment.noReplyDays} days</span>
+                ) : null}
+              </Label>
+              <select
+                value={audience.segment?.noReplyDays ?? 0}
+                onChange={(e) => updateSegment({ noReplyDays: Number(e.target.value) || undefined })}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value={0}>No reply filter</option>
+                <option value={1}>No customer reply for 1+ day</option>
+                <option value={3}>No customer reply for 3+ days</option>
+                <option value={7}>No customer reply for 7+ days</option>
+                <option value={14}>No customer reply for 14+ days</option>
+                <option value={30}>No customer reply for 30+ days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 4. Tag Exclusions */}
+          <div className="space-y-2 border-t border-border/40 pt-3">
+            <Label className="text-xs font-semibold text-foreground">Exclude Contacts Tagged With</Label>
+            {loadingTags ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : tags.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">No tags defined.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => {
+                  const isExcluded = audience.segment?.excludeTagIds?.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleSegmentExcludeTag(tag.id)}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                        isExcluded
+                          ? 'border-red-500/45 bg-red-500/10 text-red-300'
+                          : 'border-border bg-muted text-muted-foreground hover:border-border'
+                      }`}
+                    >
+                      <span className="mr-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -13,11 +13,20 @@ export interface CustomFieldFilter {
   value: string;
 }
 
+export interface SegmentFilter {
+  tagIds?: string[];
+  excludeTagIds?: string[];
+  pipelineStageId?: string;
+  idleDays?: number;
+  noReplyDays?: number;
+}
+
 export interface AudienceConfig {
-  type: 'all' | 'tags' | 'custom_field' | 'csv';
+  type: 'all' | 'tags' | 'custom_field' | 'csv' | 'segment';
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
+  segment?: SegmentFilter;
   /** Contacts carrying any of these tags are subtracted from the result. */
   excludeTagIds?: string[];
 }
@@ -189,6 +198,8 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       contacts = await resolveCustomFieldAudience(supabase, audience.customField);
     } else if (audience.type === 'csv' && audience.csvContacts) {
       contacts = await upsertCsvContacts(supabase, audience.csvContacts);
+    } else if (audience.type === 'segment' && audience.segment) {
+      contacts = await resolveSegmentAudience(supabase, audience.segment);
     }
 
     // Apply exclude tags (works across all contact-derived audience
@@ -318,6 +329,131 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       .in('id', contactIds);
     if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
     return data ?? [];
+  }
+
+  async function resolveSegmentAudience(
+    supabase: ReturnType<typeof createClient>,
+    segment: SegmentFilter,
+  ): Promise<Contact[]> {
+    let contactIds: Set<string> | null = null;
+
+    // 1. Tag filters (Inclusions)
+    if (segment.tagIds && segment.tagIds.length > 0) {
+      const { data: ctRows, error: ctErr } = await supabase
+        .from('contact_tags')
+        .select('contact_id')
+        .in('tag_id', segment.tagIds);
+      if (ctErr) throw new Error(`Tag inclusion query failed: ${ctErr.message}`);
+      const tagSet = new Set((ctRows ?? []).map((r) => r.contact_id));
+      contactIds = tagSet;
+    }
+
+    // 2. Deals / Pipeline stage filter
+    if (segment.pipelineStageId) {
+      const { data: deals, error: dealsErr } = await supabase
+        .from('deals')
+        .select('contact_id')
+        .eq('stage_id', segment.pipelineStageId)
+        .eq('status', 'active');
+      if (dealsErr) throw new Error(`Pipeline stage query failed: ${dealsErr.message}`);
+      const dealsSet = new Set((deals ?? []).map((d) => d.contact_id));
+      if (contactIds === null) {
+        contactIds = dealsSet;
+      } else {
+        contactIds = new Set([...contactIds].filter((id) => dealsSet.has(id)));
+      }
+    }
+
+    // 3. Idle days filter (no messages at all in last X days)
+    if (segment.idleDays && segment.idleDays > 0) {
+      const cutoff = new Date(Date.now() - segment.idleDays * 24 * 60 * 60 * 1000).toISOString();
+      const { data: activeConvs, error: activeErr } = await supabase
+        .from('conversations')
+        .select('contact_id')
+        .gte('last_message_at', cutoff);
+      if (activeErr) throw new Error(`Idle cutoff check failed: ${activeErr.message}`);
+      const activeSet = new Set((activeConvs ?? []).map((c) => c.contact_id));
+
+      if (contactIds === null) {
+        const { data: allC, error: allCErr } = await supabase.from('contacts').select('id');
+        if (allCErr) throw allCErr;
+        contactIds = new Set((allC ?? []).map((c) => c.id).filter((id) => !activeSet.has(id)));
+      } else {
+        contactIds = new Set([...contactIds].filter((id) => !activeSet.has(id)));
+      }
+    }
+
+    // 4. No reply days filter (last message was outbound, sent more than X days ago)
+    if (segment.noReplyDays && segment.noReplyDays > 0) {
+      const cutoff = new Date(Date.now() - segment.noReplyDays * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: oldConvs, error: oldErr } = await supabase
+        .from('conversations')
+        .select('id, contact_id')
+        .lt('last_message_at', cutoff);
+      if (oldErr) throw oldErr;
+
+      const eligibleContactIds = new Set<string>();
+      if (oldConvs && oldConvs.length > 0) {
+        const convIds = oldConvs.map((c) => c.id);
+        const { data: msgs, error: msgsErr } = await supabase
+          .from('messages')
+          .select('conversation_id, sender_type, created_at')
+          .in('conversation_id', convIds)
+          .order('created_at', { ascending: false });
+        if (msgsErr) throw msgsErr;
+
+        const latestMsgMap = new Map<string, string>();
+        for (const msg of msgs ?? []) {
+          if (!latestMsgMap.has(msg.conversation_id)) {
+            latestMsgMap.set(msg.conversation_id, msg.sender_type);
+          }
+        }
+
+        for (const c of oldConvs) {
+          const latestSender = latestMsgMap.get(c.id);
+          if (latestSender === 'agent' || latestSender === 'bot') {
+            eligibleContactIds.add(c.contact_id);
+          }
+        }
+      }
+
+      if (contactIds === null) {
+        contactIds = eligibleContactIds;
+      } else {
+        contactIds = new Set([...contactIds].filter((id) => eligibleContactIds.has(id)));
+      }
+    }
+
+    // Resolve actual contact rows
+    let contacts: Contact[] = [];
+    if (contactIds === null) {
+      const { data, error } = await supabase.from('contacts').select('*');
+      if (error) throw error;
+      contacts = data ?? [];
+    } else {
+      if (contactIds.size > 0) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', [...contactIds]);
+        if (error) throw error;
+        contacts = data ?? [];
+      }
+    }
+
+    // 5. Excludes tags (Segment level)
+    if (segment.excludeTagIds && segment.excludeTagIds.length > 0) {
+      const { data: exRows, error: exErr } = await supabase
+        .from('contact_tags')
+        .select('contact_id')
+        .in('tag_id', segment.excludeTagIds);
+      if (exErr) throw exErr;
+      const exSet = new Set((exRows ?? []).map((r) => r.contact_id));
+      contacts = contacts.filter((c) => !exSet.has(c.id));
+    }
+
+    return contacts;
   }
 
   async function createAndSendBroadcast(payload: BroadcastPayload): Promise<string> {

@@ -18,6 +18,9 @@ import { MembersTab } from '@/components/settings/members-tab';
 import { BillingSettings } from '@/components/settings/billing-settings';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { IntegrationsPanel } from '@/components/settings/integrations-panel';
+import { CannedResponsesSettings } from '@/components/settings/canned-responses-settings';
+import { WhatsAppWidgetSettings } from '@/components/settings/whatsapp-widget-settings';
+import { BusinessHoursSettings } from '@/components/settings/business-hours-settings';
 import {
   resolveSection,
   type SettingsSection,
@@ -59,6 +62,9 @@ export default function SettingsPage() {
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
     templates: <TemplateManager />,
+    canned: <CannedResponsesSettings />,
+    widget: <WhatsAppWidgetSettings />,
+    business_hours: <BusinessHoursSettings />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
     members: <MembersTab />,

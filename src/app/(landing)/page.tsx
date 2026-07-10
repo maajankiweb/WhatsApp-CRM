@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description: 'Self-hostable, multi-tenant WhatsApp CRM & Business Suite for Indian SMBs & global agencies. Features shared team inbox, visual chatbot flows, and GST invoicing.',
   keywords: [
     'Wachatra',
-    'InvoSuite',
+    'Wachatra OS',
     'WhatsApp CRM',
     'WhatsApp Business API',
     'Shared Inbox',
@@ -180,7 +180,7 @@ export default function LandingPage() {
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-bold tracking-tight text-white leading-none">Wachatra</span>
-                <span className="text-[10px] text-muted-foreground mt-1">InvoSuite Business OS</span>
+                <span className="text-[10px] text-muted-foreground mt-1">Wachatra Business OS</span>
               </div>
             </Link>
 

@@ -1,23 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FileSpreadsheet,
   BookOpen,
   Share2,
-  GitBranch,
   AtSign,
   Users,
   Volume2,
   CheckCircle2,
   XCircle,
-  HelpCircle,
   Link2,
-  PlugZap,
   Settings,
-  Terminal,
+  Copy,
+  Check,
+  CreditCard,
+  ShoppingBag,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { SettingsPanelHead } from './settings-panel-head';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Custom inline SVG icons for social platforms
 const Facebook = (props: React.SVGProps<SVGSVGElement>) => (
@@ -54,22 +74,6 @@ const Instagram = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-import { SettingsPanelHead } from './settings-panel-head';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
 // Configuration states types
 interface SheetsConfig {
   connected: boolean;
@@ -103,10 +107,16 @@ interface GroupConfig {
 }
 
 export function IntegrationsPanel() {
+  const supabase = createClient();
+  const { accountId, canEditSettings } = useAuth();
+
   // Modal toggle states
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Connection configurations state
+  // Connection configurations state (stubs)
   const [sheets, setSheets] = useState<SheetsConfig>({
     connected: false,
     url: '',
@@ -159,38 +169,357 @@ export function IntegrationsPanel() {
     name: '',
   });
 
-  // Event list options for webhook subscription
-  const EVENT_OPTIONS = [
-    { id: 'message.received', label: 'Inbound message received' },
-    { id: 'message.sent', label: 'Outbound message sent' },
-    { id: 'message.status_updated', label: 'Message status transition (Delivered/Read)' },
-    { id: 'contact.created', label: 'New contact registered' },
-  ];
+  // Shopify Configuration State
+  const [shopifyShopUrl, setShopifyShopUrl] = useState('');
+  const [shopifyAccessToken, setShopifyAccessToken] = useState('');
+  const [shopifyCartEnabled, setShopifyCartEnabled] = useState(false);
+  const [shopifyCartMsg, setShopifyCartMsg] = useState(
+    'Hi {{name}}, we noticed you left items in your cart. Complete your purchase here: {{checkout_url}}'
+  );
+  const [shopifyTrackingEnabled, setShopifyTrackingEnabled] = useState(false);
+  const [shopifyTrackingMsg, setShopifyTrackingMsg] = useState(
+    'Hi {{name}}, your order has been shipped! Tracking number: {{tracking_number}}'
+  );
 
-  // Helper toggle for webhooks events
-  const handleWebhookEventToggle = (
-    provider: 'n8n' | 'make',
-    eventId: string,
-    checked: boolean
-  ) => {
-    const target = provider === 'n8n' ? n8n : make;
-    const setter = provider === 'n8n' ? setN8n : setMake;
+  // WooCommerce Configuration State
+  const [wooStoreUrl, setWooStoreUrl] = useState('');
+  const [wooConsumerKey, setWooConsumerKey] = useState('');
+  const [wooConsumerSecret, setWooConsumerSecret] = useState('');
+  const [wooCartEnabled, setWooCartEnabled] = useState(false);
+  const [wooCartMsg, setWooCartMsg] = useState(
+    'Hi {{name}}, we noticed you left items in your cart. Complete your purchase here: {{checkout_url}}'
+  );
+  const [wooTrackingEnabled, setWooTrackingEnabled] = useState(false);
+  const [wooTrackingMsg, setWooTrackingMsg] = useState(
+    'Hi {{name}}, your order has been shipped! Tracking number: {{tracking_number}}'
+  );
 
-    if (checked) {
-      setter({ ...target, events: [...target.events, eventId] });
-    } else {
-      setter({ ...target, events: target.events.filter((e) => e !== eventId) });
+  // Razorpay Configuration State
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpKeySecret, setRzpKeySecret] = useState('');
+
+  // UPI Configuration State
+  const [upiVpa, setUpiVpa] = useState('');
+  const [upiName, setUpiName] = useState('');
+
+  const hostUrl = typeof window !== 'undefined' ? window.location.origin : 'https://your-crm-domain.com';
+
+  useEffect(() => {
+    if (!accountId) return;
+    fetchIntegrations();
+  }, [accountId]);
+
+  async function fetchIntegrations() {
+    try {
+      setLoading(true);
+      // Fetch Shopify/WooCommerce
+      const { data: eco } = await supabase
+        .from('ecommerce_integrations')
+        .select('*')
+        .eq('organization_id', accountId)
+        .maybeSingle();
+
+      if (eco) {
+        setShopifyShopUrl(eco.shopify_shop_url || '');
+        setShopifyAccessToken(eco.shopify_access_token ? '••••••••••••' : '');
+        setShopifyCartEnabled(eco.abandoned_cart_enabled);
+        setShopifyCartMsg(eco.abandoned_cart_message || '');
+        setShopifyTrackingEnabled(eco.tracking_alerts_enabled);
+        setShopifyTrackingMsg(eco.tracking_message || '');
+
+        setWooStoreUrl(eco.woocommerce_store_url || '');
+        setWooConsumerKey(eco.woocommerce_consumer_key || '');
+        setWooConsumerSecret(eco.woocommerce_consumer_secret ? '••••••••••••' : '');
+        setWooCartEnabled(eco.abandoned_cart_enabled);
+        setWooCartMsg(eco.abandoned_cart_message || '');
+        setWooTrackingEnabled(eco.tracking_alerts_enabled);
+        setWooTrackingMsg(eco.tracking_message || '');
+      }
+
+      // Fetch Payments
+      const { data: pay } = await supabase
+        .from('payment_settings')
+        .select('*')
+        .eq('organization_id', accountId)
+        .maybeSingle();
+
+      if (pay) {
+        setRzpKeyId(pay.razorpay_key_id || '');
+        setRzpKeySecret(pay.razorpay_key_secret ? '••••••••••••' : '');
+        setUpiVpa(pay.upi_vpa || '');
+        setUpiName(pay.upi_name || '');
+      }
+    } catch (err) {
+      console.error('[integrations] Load failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleSaveEcommerce = async () => {
+    if (!canEditSettings) {
+      toast.error('You do not have permission to modify settings.');
+      return;
+    }
+    try {
+      setSaving(true);
+      const res = await fetch('/api/integrations/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'ecommerce',
+          data: {
+            shopify_shop_url: shopifyShopUrl,
+            shopify_access_token: shopifyAccessToken,
+            woocommerce_store_url: wooStoreUrl,
+            woocommerce_consumer_key: wooConsumerKey,
+            woocommerce_consumer_secret: wooConsumerSecret,
+            abandoned_cart_enabled: shopifyCartEnabled || wooCartEnabled,
+            abandoned_cart_message: shopifyCartEnabled ? shopifyCartMsg : wooCartMsg,
+            tracking_alerts_enabled: shopifyTrackingEnabled || wooTrackingEnabled,
+            tracking_message: shopifyTrackingEnabled ? shopifyTrackingMsg : wooTrackingMsg,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save e-commerce configuration');
+      }
+
+      toast.success('E-commerce integration settings updated');
+      setActiveModal(null);
+      await fetchIntegrations();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleSavePayment = async () => {
+    if (!canEditSettings) {
+      toast.error('You do not have permission to modify settings.');
+      return;
+    }
+    try {
+      setSaving(true);
+      const res = await fetch('/api/integrations/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'payment',
+          data: {
+            razorpay_key_id: rzpKeyId,
+            razorpay_key_secret: rzpKeySecret,
+            upi_vpa: upiVpa,
+            upi_name: upiName,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save payment settings');
+      }
+
+      toast.success('Payment settings updated');
+      setActiveModal(null);
+      await fetchIntegrations();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(key);
+    setTimeout(() => setCopiedText(null), 2000);
+    toast.success('Webhook target URL copied to clipboard');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <section className="space-y-6 animate-in fade-in-50 duration-200">
       <SettingsPanelHead
         title="Integrations Hub"
-        description="Sync conversations, contacts, and automated workflows across database layers, automation engines, and social communication channels."
+        description="Sync conversations, contacts, and automated checkouts across Shopify/WooCommerce stores and request instant payments via Razorpay and UPI."
       />
 
-      {/* Group 1: Data Synchronisation */}
+      {/* Group 1: E-Commerce & Payment Gateways */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          E-Commerce & Payments
+        </h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Shopify Card */}
+          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-sm font-semibold text-foreground">Shopify Integration</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground truncate">
+                  {shopifyShopUrl ? `Connected to ${shopifyShopUrl}` : 'Sync checkouts and fulfillments'}
+                </CardDescription>
+              </div>
+              <div className="shrink-0 flex items-center">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    shopifyShopUrl
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${shopifyShopUrl ? 'bg-indigo-400' : 'bg-neutral-500'}`} />
+                  {shopifyShopUrl ? 'Connected' : 'Not Connected'}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2 flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Send cart recovery and tracking updates</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900"
+                onClick={() => setActiveModal('shopify')}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Configure
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* WooCommerce Card */}
+          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-sm font-semibold text-foreground">WooCommerce</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground truncate">
+                  {wooStoreUrl ? `Connected to ${wooStoreUrl}` : 'Automate cart recovery via REST API'}
+                </CardDescription>
+              </div>
+              <div className="shrink-0 flex items-center">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    wooStoreUrl
+                      ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                      : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${wooStoreUrl ? 'bg-purple-400' : 'bg-neutral-500'}`} />
+                  {wooStoreUrl ? 'Connected' : 'Not Connected'}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2 flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Sync orders and alerts to WhatsApp</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900"
+                onClick={() => setActiveModal('woocommerce')}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Configure
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Razorpay Card */}
+          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-sm font-semibold text-foreground">Razorpay Gateway</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground truncate">
+                  {rzpKeyId ? 'Merchant Keys Configured' : 'Generate invoice checkout links dynamically'}
+                </CardDescription>
+              </div>
+              <div className="shrink-0 flex items-center">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    rzpKeyId
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${rzpKeyId ? 'bg-blue-400' : 'bg-neutral-500'}`} />
+                  {rzpKeyId ? 'Active' : 'Not Configured'}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2 flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Generate and monitor billing checkouts</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900"
+                onClick={() => setActiveModal('razorpay')}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Configure
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* UPI Card */}
+          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
+            <CardHeader className="flex flex-row items-center gap-4 pb-2">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-sm font-semibold text-foreground">UPI Payments</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground truncate">
+                  {upiVpa ? `VPA: ${upiVpa}` : 'Instant zero-fee customer QR codes'}
+                </CardDescription>
+              </div>
+              <div className="shrink-0 flex items-center">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    upiVpa
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${upiVpa ? 'bg-emerald-400' : 'bg-neutral-500'}`} />
+                  {upiVpa ? 'Active' : 'Not Configured'}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2 flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">Generate scan-to-pay QR codes in chat</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900"
+                onClick={() => setActiveModal('upi')}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Configure
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Group 2: Databases & Spreadsheets (Stubs) */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Databases & Spreadsheets
@@ -276,7 +605,7 @@ export function IntegrationsPanel() {
         </div>
       </div>
 
-      {/* Group 2: Outgoing Webhooks & Workflow Engines */}
+      {/* Group 3: Outgoing Webhooks & Workflow Engines (Stubs) */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Workflow Engines & Webhooks
@@ -303,12 +632,12 @@ export function IntegrationsPanel() {
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${n8n.connected ? 'bg-orange-400' : 'bg-neutral-500'}`} />
-                  {n8n.connected ? 'Active' : 'Not Configured'}
+                  {n8n.connected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
             </CardHeader>
             <CardContent className="pt-2 flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Forward real-time API events to self-hosted n8n</span>
+              <span className="text-xs text-muted-foreground">Trigger n8n workflow urls directly</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -325,12 +654,12 @@ export function IntegrationsPanel() {
           <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
             <CardHeader className="flex flex-row items-center gap-4 pb-2">
               <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                <GitBranch className="w-5 h-5" />
+                <Link2 className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm font-semibold text-foreground">Make (Integromat)</CardTitle>
+                <CardTitle className="text-sm font-semibold text-foreground">Make Integration</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground truncate">
-                  {make.connected ? 'Webhook sync verified' : 'Connect multi-app scenario webhooks'}
+                  {make.connected ? `Hook: ${make.url}` : 'Link Make scenarios to message dispatches'}
                 </CardDescription>
               </div>
               <div className="shrink-0 flex items-center">
@@ -342,12 +671,12 @@ export function IntegrationsPanel() {
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${make.connected ? 'bg-blue-400' : 'bg-neutral-500'}`} />
-                  {make.connected ? 'Active' : 'Not Configured'}
+                  {make.connected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
             </CardHeader>
             <CardContent className="pt-2 flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Trigger scenarios using webhook events listener</span>
+              <span className="text-xs text-muted-foreground">Receive updates on custom Make scenario webhooks</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -362,635 +691,341 @@ export function IntegrationsPanel() {
         </div>
       </div>
 
-      {/* Group 3: Social Omnichannel Channels */}
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Omnichannel Social Messengers
-        </h3>
-        <div className="grid gap-4 md:grid-cols-3">
-          {/* Facebook Card */}
-          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
-            <CardContent className="pt-6 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-sky-600/10 text-sky-500 flex items-center justify-center border border-sky-600/20">
-                <Facebook className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">Facebook Messenger</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 min-h-[32px]">
-                  {facebook.connected ? `Connected to page "${facebook.name}"` : 'Sync Facebook business messages to team inbox.'}
-                </p>
-              </div>
-              <Button
-                variant={facebook.connected ? 'destructive' : 'outline'}
-                size="sm"
-                className="w-full text-xs h-8"
-                onClick={() => {
-                  if (facebook.connected) {
-                    setFacebook({ connected: false, name: '' });
-                  } else {
-                    setActiveModal('facebook');
-                  }
-                }}
-              >
-                {facebook.connected ? 'Disconnect' : 'Connect Page'}
-              </Button>
-            </CardContent>
-          </Card>
+      {/* ============================================================
+          MODALS & DIALOGS
+          ============================================================ */}
 
-          {/* Instagram Card */}
-          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
-            <CardContent className="pt-6 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
-                <Instagram className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">Instagram DMs</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 min-h-[32px]">
-                  {instagram.connected ? `Connected to @${instagram.name}` : 'Handle Instagram DMs and comment replies.'}
-                </p>
-              </div>
-              <Button
-                variant={instagram.connected ? 'destructive' : 'outline'}
-                size="sm"
-                className="w-full text-xs h-8"
-                onClick={() => {
-                  if (instagram.connected) {
-                    setInstagram({ connected: false, name: '' });
-                  } else {
-                    setActiveModal('instagram');
-                  }
-                }}
-              >
-                {instagram.connected ? 'Disconnect' : 'Connect Account'}
-              </Button>
-            </CardContent>
-          </Card>
+      {/* Shopify Dialog */}
+      <Dialog open={activeModal === 'shopify'} onOpenChange={(open) => !open && setActiveModal(null)}>
+        <DialogContent className="sm:max-w-[500px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <ShoppingBag className="w-5 h-5 text-indigo-400" />
+              Shopify Integration Configuration
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Connect your Shopify store to enable abandoned checkout recovery and shipping tracking alerts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[380px] overflow-y-auto pr-1">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Shopify Store URL</Label>
+              <Input
+                placeholder="your-store-name.myshopify.com"
+                value={shopifyShopUrl}
+                onChange={(e) => setShopifyShopUrl(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Admin API Access Token</Label>
+              <Input
+                type="password"
+                placeholder="shpat_••••••••••••••••••••••••••••••••"
+                value={shopifyAccessToken}
+                onChange={(e) => setShopifyAccessToken(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
 
-          {/* Threads Card */}
-          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
-            <CardContent className="pt-6 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-neutral-200/10 text-foreground flex items-center justify-center border border-neutral-200/20">
-                <AtSign className="w-6 h-6" />
+            <div className="rounded-lg border border-neutral-800 p-3 space-y-3 bg-neutral-950/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-bold block">Abandoned Cart Recovery</Label>
+                  <span className="text-[10px] text-muted-foreground">Send recovery alerts on checkouts abandon.</span>
+                </div>
+                <Switch checked={shopifyCartEnabled} onCheckedChange={setShopifyCartEnabled} />
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">Threads Connect</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 min-h-[32px]">
-                  {threads.connected ? `Connected to @${threads.name}` : 'Sync Threads mentions & posts to conversation logs.'}
-                </p>
-              </div>
-              <Button
-                variant={threads.connected ? 'destructive' : 'outline'}
-                size="sm"
-                className="w-full text-xs h-8"
-                onClick={() => {
-                  if (threads.connected) {
-                    setThreads({ connected: false, name: '' });
-                  } else {
-                    setActiveModal('threads');
-                  }
-                }}
-              >
-                {threads.connected ? 'Disconnect' : 'Connect Threads'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Group 4: WhatsApp Groups & Channels */}
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          WhatsApp Group & Channel Connect
-        </h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Groups Connection Card */}
-          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
-            <CardHeader className="flex flex-row items-center gap-4 pb-2">
-              <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                <Users className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm font-semibold text-foreground">WhatsApp Group Sync</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground truncate">
-                  {groups.connected
-                    ? groups.monitorAll
-                      ? 'Monitoring all group messages'
-                      : `Monitoring ${groups.groupsList.length} specified groups`
-                    : 'Sync internal WhatsApp group threads to team inbox'}
-                </CardDescription>
-              </div>
-              <div className="shrink-0 flex items-center">
-                <Switch
-                  checked={groups.connected}
-                  onCheckedChange={(checked) => setGroups({ ...groups, connected: checked })}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2 flex justify-between items-center gap-4">
-              <span className="text-xs text-muted-foreground">
-                Enable this to view group conversations and assign group chat tickets to agents.
-              </span>
-              {groups.connected && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900 shrink-0"
-                  onClick={() => setActiveModal('groups')}
-                >
-                  Configure
-                </Button>
+              {shopifyCartEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Cart Recovery Message Template</Label>
+                  <Textarea
+                    value={shopifyCartMsg}
+                    onChange={(e) => setShopifyCartMsg(e.target.value)}
+                    rows={3}
+                    className="text-xs bg-neutral-900 border-neutral-850"
+                  />
+                  <span className="text-[9px] text-muted-foreground block">
+                    Use tags: `{{name}}`, `{{checkout_url}}`, `{{total_price}}`
+                  </span>
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Channels Broadcast Card */}
-          <Card className="backdrop-blur-md bg-card/60 border-border/50 hover:border-border/80 transition-all">
-            <CardHeader className="flex flex-row items-center gap-4 pb-2">
-              <div className="p-2.5 rounded-xl bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-                <Volume2 className="w-5 h-5" />
+            <div className="rounded-lg border border-neutral-800 p-3 space-y-3 bg-neutral-950/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-bold block">Shipping Alerts</Label>
+                  <span className="text-[10px] text-muted-foreground">Send tracking details on order fulfillments.</span>
+                </div>
+                <Switch checked={shopifyTrackingEnabled} onCheckedChange={setShopifyTrackingEnabled} />
               </div>
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm font-semibold text-foreground">WhatsApp Channels Connect</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground truncate">
-                  {channels.connected ? `Broadcasting to "${channels.name}"` : 'Manage your WhatsApp Public Channels'}
-                </CardDescription>
-              </div>
-              <div className="shrink-0 flex items-center">
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    channels.connected
-                      ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                      : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${channels.connected ? 'bg-yellow-400' : 'bg-neutral-500'}`} />
-                  {channels.connected ? 'Connected' : 'Not Connected'}
+              {shopifyTrackingEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Shipping Notification Template</Label>
+                  <Textarea
+                    value={shopifyTrackingMsg}
+                    onChange={(e) => setShopifyTrackingMsg(e.target.value)}
+                    rows={3}
+                    className="text-xs bg-neutral-900 border-neutral-850"
+                  />
+                  <span className="text-[9px] text-muted-foreground block">
+                    Use tags: `{{name}}`, `{{tracking_number}}`, `{{carrier}}`
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {accountId && (
+              <div className="space-y-1 border-t border-neutral-800 pt-3">
+                <Label className="text-xs font-semibold text-indigo-400 block">Shopify Webhook Target URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={`${hostUrl}/api/integrations/shopify/webhook?org_id=${accountId}`}
+                    readOnly
+                    className="text-xs bg-neutral-900 border-neutral-850 truncate font-mono text-muted-foreground"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() =>
+                      copyToClipboard(
+                        `${hostUrl}/api/integrations/shopify/webhook?org_id=${accountId}`,
+                        'shopify-wh'
+                      )
+                    }
+                  >
+                    {copiedText === 'shopify-wh' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <span className="text-[9px] text-muted-foreground leading-tight block">
+                  Copy and paste this URL into Shopify Admin → Settings → Notifications → App Webhooks for `checkouts/create`, `checkouts/update`, and `orders/fulfilled` events.
                 </span>
               </div>
-            </CardHeader>
-            <CardContent className="pt-2 flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Schedule and post updates directly to subscribers</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs h-8 border-neutral-800/80 hover:bg-neutral-900"
-                onClick={() => setActiveModal('channels')}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                Configure
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* --- MODAL DIALOGS --- */}
-
-      {/* Google Sheets Dialog */}
-      <Dialog open={activeModal === 'sheets'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[500px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
-              Google Sheets Integration
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Sync Wachatra customer profiles and messages to a Google Sheet spreadsheet for reporting.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 text-foreground">
-            <div className="space-y-2">
-              <Label htmlFor="sheet-url">Google Spreadsheet URL or ID</Label>
-              <Input
-                id="sheet-url"
-                placeholder="https://docs.google.com/spreadsheets/d/.../edit"
-                value={sheets.url}
-                onChange={(e) => setSheets({ ...sheets, url: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
-              />
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Make sure to share edit permissions with our integration client mail: 
-                <code className="bg-neutral-900 px-1 py-0.5 rounded ml-1 text-primary">sheets-sync@wachatra.iam.gserviceaccount.com</code>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sheet-name">Target Worksheet Name</Label>
-              <Input
-                id="sheet-name"
-                value={sheets.sheetName}
-                onChange={(e) => setSheets({ ...sheets, sheetName: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
-              />
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="sync-contacts" className="font-medium text-foreground block">Sync Contacts</Label>
-                  <span className="text-[11px] text-muted-foreground">Append new phone leads to rows.</span>
-                </div>
-                <Switch
-                  id="sync-contacts"
-                  checked={sheets.syncContacts}
-                  onCheckedChange={(checked) => setSheets({ ...sheets, syncContacts: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="sync-messages" className="font-medium text-foreground block">Sync Message Log</Label>
-                  <span className="text-[11px] text-muted-foreground">Log every single chat transaction into Sheet.</span>
-                </div>
-                <Switch
-                  id="sync-messages"
-                  checked={sheets.syncMessages}
-                  onCheckedChange={(checked) => setSheets({ ...sheets, syncMessages: checked })}
-                />
-              </div>
-            </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => {
-                setSheets({ ...sheets, connected: true });
-                setActiveModal(null);
-              }}
-            >
-              Verify & Connect
+            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={handleSaveEcommerce} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Shopify Configuration'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Notion Dialog */}
-      <Dialog open={activeModal === 'notion'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[480px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
+      {/* WooCommerce Dialog */}
+      <Dialog open={activeModal === 'woocommerce'} onOpenChange={(open) => !open && setActiveModal(null)}>
+        <DialogContent className="sm:max-w-[500px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <BookOpen className="w-5 h-5 text-purple-400" />
-              Notion Connection Panel
+              <ShoppingBag className="w-5 h-5 text-purple-400" />
+              WooCommerce Configuration
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Connect Notion databases to sync leads.
+            <DialogDescription className="text-muted-foreground text-xs">
+              Link your WooCommerce storefront to trigger notifications for checkouts.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-3 text-foreground">
+          <div className="space-y-4 py-4 max-h-[380px] overflow-y-auto pr-1">
             <div className="space-y-2">
-              <Label htmlFor="notion-secret">Notion Integration Token (Secret)</Label>
+              <Label className="text-xs font-semibold">WooCommerce Store URL</Label>
               <Input
-                id="notion-secret"
+                placeholder="https://your-store.com"
+                value={wooStoreUrl}
+                onChange={(e) => setWooStoreUrl(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Consumer Key</Label>
+              <Input
+                placeholder="ck_••••••••••••••••••••••••••••••••••••••••"
+                value={wooConsumerKey}
+                onChange={(e) => setWooConsumerKey(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Consumer Secret</Label>
+              <Input
                 type="password"
-                placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                value={notion.token}
-                onChange={(e) => setNotion({ ...notion, token: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notion-db">Database ID</Label>
-              <Input
-                id="notion-db"
-                placeholder="32-digit UUID code (e.g. 5d5a7d90e80a4db091df2bf72e...)"
-                value={notion.databaseId}
-                onChange={(e) => setNotion({ ...notion, databaseId: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={() => {
-                setNotion({ ...notion, connected: true });
-                setActiveModal(null);
-              }}
-            >
-              Connect Workspace
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* n8n Dialog */}
-      <Dialog open={activeModal === 'n8n'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[500px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Share2 className="w-5 h-5 text-orange-500" />
-              Configure n8n Webhook
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Send outbound webhook payloads to n8n whenever workspace events trigger.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 text-foreground">
-            <div className="space-y-2">
-              <Label htmlFor="n8n-url">n8n Webhook Node URL</Label>
-              <Input
-                id="n8n-url"
-                placeholder="https://n8n.yourdomain.com/webhook/..."
-                value={n8n.url}
-                onChange={(e) => setN8n({ ...n8n, url: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
+                placeholder="cs_••••••••••••••••••••••••••••••••••••••••"
+                value={wooConsumerSecret}
+                onChange={(e) => setWooConsumerSecret(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground block">Subscribe to Events</Label>
-              <div className="grid gap-2 pt-1">
-                {EVENT_OPTIONS.map((opt) => (
-                  <div key={opt.id} className="flex items-center gap-2.5">
-                    <Checkbox
-                      id={`n8n-${opt.id}`}
-                      checked={n8n.events.includes(opt.id)}
-                      onCheckedChange={(checked) =>
-                        handleWebhookEventToggle('n8n', opt.id, !!checked)
-                      }
-                    />
-                    <label
-                      htmlFor={`n8n-${opt.id}`}
-                      className="text-xs font-medium text-foreground leading-none cursor-pointer"
-                    >
-                      {opt.label}
-                    </label>
-                  </div>
-                ))}
+            <div className="rounded-lg border border-neutral-800 p-3 space-y-3 bg-neutral-950/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-bold block">Abandoned Cart Recovery</Label>
+                </div>
+                <Switch checked={wooCartEnabled} onCheckedChange={setWooCartEnabled} />
               </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={() => {
-                setN8n({ ...n8n, connected: true });
-                setActiveModal(null);
-              }}
-            >
-              Activate Webhook
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Make Dialog */}
-      <Dialog open={activeModal === 'make'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[500px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <GitBranch className="w-5 h-5 text-blue-400" />
-              Configure Make Scenario Webhook
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Forward real-time event updates to Make.com scenarios.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 text-foreground">
-            <div className="space-y-2">
-              <Label htmlFor="make-url">Make Webhook URL</Label>
-              <Input
-                id="make-url"
-                placeholder="https://hook.us1.make.com/..."
-                value={make.url}
-                onChange={(e) => setMake({ ...make, url: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
-              />
+              {wooCartEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Woo Cart Recovery Template</Label>
+                  <Textarea
+                    value={wooCartMsg}
+                    onChange={(e) => setWooCartMsg(e.target.value)}
+                    rows={3}
+                    className="text-xs bg-neutral-900 border-neutral-850"
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground block">Subscribe to Events</Label>
-              <div className="grid gap-2 pt-1">
-                {EVENT_OPTIONS.map((opt) => (
-                  <div key={opt.id} className="flex items-center gap-2.5">
-                    <Checkbox
-                      id={`make-${opt.id}`}
-                      checked={make.events.includes(opt.id)}
-                      onCheckedChange={(checked) =>
-                        handleWebhookEventToggle('make', opt.id, !!checked)
-                      }
-                    />
-                    <label
-                      htmlFor={`make-${opt.id}`}
-                      className="text-xs font-medium text-foreground leading-none cursor-pointer"
-                    >
-                      {opt.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => {
-                setMake({ ...make, connected: true });
-                setActiveModal(null);
-              }}
-            >
-              Activate Webhook
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Meta channels connection popups (Mock OAuth Flow) */}
-      <Dialog open={activeModal === 'facebook'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[400px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader className="text-center">
-            <Facebook className="w-10 h-10 text-sky-500 mx-auto mb-2" />
-            <DialogTitle className="text-foreground">Connect Facebook Messenger</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Grant Wachatra permission to sync Facebook Page conversation threads.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 text-center text-foreground">
-            <p className="text-xs text-muted-foreground mb-4">
-              This opens the official Meta Business login flow to request manage_pages and read_inbox scopes.
-            </p>
-            <Input
-              placeholder="Select Facebook Page"
-              defaultValue="My Agency Business page"
-              className="text-center font-semibold bg-neutral-900 border-neutral-800"
-              readOnly
-            />
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-sky-600 hover:bg-sky-700 text-white"
-              onClick={() => {
-                setFacebook({ connected: true, name: 'My Agency Business page' });
-                setActiveModal(null);
-              }}
-            >
-              Log in with Meta
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={activeModal === 'instagram'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[400px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader className="text-center">
-            <Instagram className="w-10 h-10 text-rose-400 mx-auto mb-2" />
-            <DialogTitle className="text-foreground">Connect Instagram Account</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Link your Instagram Professional Creator account via Meta Business Manager.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 text-center text-foreground">
-            <Input
-              placeholder="Enter Instagram Handle"
-              defaultValue="wachatra_crm"
-              className="text-center font-semibold bg-neutral-900 border-neutral-800"
-              readOnly
-            />
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-              onClick={() => {
-                setInstagram({ connected: true, name: 'wachatra_crm' });
-                setActiveModal(null);
-              }}
-            >
-              Authorize API Access
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={activeModal === 'threads'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[400px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader className="text-center">
-            <AtSign className="w-10 h-10 text-foreground mx-auto mb-2" />
-            <DialogTitle className="text-foreground">Connect Threads Account</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Authorize access to retrieve notifications, replies, and mentions on Threads.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 text-center text-foreground">
-            <Input
-              placeholder="Threads Username"
-              defaultValue="wachatra_app"
-              className="text-center font-semibold bg-neutral-900 border-neutral-800"
-              readOnly
-            />
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-neutral-800 hover:bg-neutral-700 text-white"
-              onClick={() => {
-                setThreads({ connected: true, name: 'wachatra_app' });
-                setActiveModal(null);
-              }}
-            >
-              Verify OAuth Connect
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* WhatsApp Groups Dialog */}
-      <Dialog open={activeModal === 'groups'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[450px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Users className="w-5 h-5 text-teal-400" />
-              Configure Group Synchronization
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Toggle how group chats should be imported and displayed inside the collaborative Shared Inbox.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 text-foreground">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="monitor-all" className="font-semibold block">Monitor All Groups</Label>
-                <span className="text-[11px] text-muted-foreground">Automatically track messages from any group your number is added to.</span>
-              </div>
-              <Switch
-                id="monitor-all"
-                checked={groups.monitorAll}
-                onCheckedChange={(checked) => setGroups({ ...groups, monitorAll: checked })}
-              />
-            </div>
-
-            {!groups.monitorAll && (
-              <div className="space-y-2">
-                <Label>Sync Selected Groups Only</Label>
-                <div className="border border-neutral-800 rounded-lg bg-neutral-950 p-3 space-y-2 max-h-[150px] overflow-y-auto">
-                  {groups.groupsList.map((gName) => (
-                    <div key={gName} className="flex items-center gap-2">
-                      <Checkbox id={`group-${gName}`} defaultChecked />
-                      <label htmlFor={`group-${gName}`} className="text-xs font-medium cursor-pointer text-foreground">
-                        {gName}
-                      </label>
-                    </div>
-                  ))}
+            {accountId && (
+              <div className="space-y-1 border-t border-neutral-800 pt-3">
+                <Label className="text-xs font-semibold text-purple-400 block">WooCommerce Webhook Target URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={`${hostUrl}/api/integrations/woocommerce/webhook?org_id=${accountId}`}
+                    readOnly
+                    className="text-xs bg-neutral-900 border-neutral-850 truncate font-mono text-muted-foreground"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() =>
+                      copyToClipboard(
+                        `${hostUrl}/api/integrations/woocommerce/webhook?org_id=${accountId}`,
+                        'woo-wh'
+                      )
+                    }
+                  >
+                    {copiedText === 'woo-wh' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
                 </div>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-teal-600 hover:bg-teal-700 text-white"
-              onClick={() => {
-                setActiveModal(null);
-              }}
-            >
-              Save Settings
+            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={handleSaveEcommerce} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save WooCommerce config'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* WhatsApp Channel Dialog */}
-      <Dialog open={activeModal === 'channels'} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[450px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl">
+      {/* Razorpay Dialog */}
+      <Dialog open={activeModal === 'razorpay'} onOpenChange={(open) => !open && setActiveModal(null)}>
+        <DialogContent className="sm:max-w-[450px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Volume2 className="w-5 h-5 text-yellow-400" />
-              WhatsApp Channels Integration
+              <CreditCard className="w-5 h-5 text-blue-400" />
+              Razorpay API Settings
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Connect your WhatsApp public channel to publish updates and track reader analytics.
+            <DialogDescription className="text-muted-foreground text-xs">
+              Configure Razorpay API keys to generate payment links inside conversation composing boxes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 text-foreground">
             <div className="space-y-2">
-              <Label htmlFor="channel-name">Channel Link or Name</Label>
+              <Label className="text-xs font-semibold">Razorpay Key ID</Label>
               <Input
-                id="channel-name"
-                placeholder="e.g. Wachatra Official Channel"
-                value={channels.name}
-                onChange={(e) => setChannels({ ...channels, name: e.target.value })}
-                className="bg-neutral-900 border-neutral-800"
+                placeholder="rzp_live_••••••••••••••"
+                value={rzpKeyId}
+                onChange={(e) => setRzpKeyId(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
               />
-              <span className="text-[10px] text-muted-foreground block leading-tight">
-                Requires the connected business number to be an Owner/Admin of the targeted public Channel.
-              </span>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Razorpay Key Secret</Label>
+              <Input
+                type="password"
+                placeholder="••••••••••••••••••••••••"
+                value={rzpKeySecret}
+                onChange={(e) => setRzpKeySecret(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
+
+            {accountId && (
+              <div className="space-y-1 border-t border-neutral-800 pt-3">
+                <Label className="text-xs font-semibold text-blue-400 block">Razorpay Webhook Target URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={`${hostUrl}/api/payments/razorpay/webhook?org_id=${accountId}`}
+                    readOnly
+                    className="text-xs bg-neutral-900 border-neutral-850 truncate font-mono text-muted-foreground"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() =>
+                      copyToClipboard(
+                        `${hostUrl}/api/payments/razorpay/webhook?org_id=${accountId}`,
+                        'rzp-wh'
+                      )
+                    }
+                  >
+                    {copiedText === 'rzp-wh' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <span className="text-[9px] text-muted-foreground leading-tight block">
+                  Copy and paste this URL into Razorpay Dashboard → Settings → Webhooks for the `payment_link.paid` event.
+                </span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSavePayment} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Razorpay API Configuration'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* UPI Dialog */}
+      <Dialog open={activeModal === 'upi'} onOpenChange={(open) => !open && setActiveModal(null)}>
+        <DialogContent className="sm:max-w-[420px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <CreditCard className="w-5 h-5 text-emerald-400" />
+              UPI payment Configuration
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Generate zero-commission QR codes dynamically inside your inbox.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 text-foreground">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Merchant UPI ID (VPA)</Label>
+              <Input
+                placeholder="merchantname@okaxis"
+                value={upiVpa}
+                onChange={(e) => setUpiVpa(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Merchant Name</Label>
+              <Input
+                placeholder="e.g. Acme Agency Pvt Ltd"
+                value={upiName}
+                onChange={(e) => setUpiName(e.target.value)}
+                className="bg-neutral-900 border-neutral-850"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)}>Cancel</Button>
-            <Button
-              className="bg-yellow-600 hover:bg-yellow-700 text-white"
-              onClick={() => {
-                setChannels({ ...channels, connected: true });
-                setActiveModal(null);
-              }}
-            >
-              Connect Channel
+            <Button variant="ghost" className="hover:bg-neutral-900" onClick={() => setActiveModal(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSavePayment} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save UPI Settings'}
             </Button>
           </DialogFooter>
         </DialogContent>

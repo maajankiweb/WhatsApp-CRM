@@ -5,6 +5,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
   KeyboardEvent,
 } from "react";
 import {
@@ -19,6 +20,7 @@ import {
   X,
   Loader2,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -28,6 +30,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,6 +47,10 @@ import {
   MEDIA_MAX_BYTES_BY_KIND,
 } from "@/lib/storage/upload-media";
 import { ReplyQuote } from "./reply-quote";
+import { useAuth } from "@/hooks/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import type { CannedResponse } from "@/types";
+import { checkShortcutTrigger, getMediaKindFromUrl } from "@/lib/inbox/canned-utils";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -126,6 +140,148 @@ export function MessageComposer({
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDesc, setPaymentDesc] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "razorpay">("upi");
+  const [requestingPayment, setRequestingPayment] = useState(false);
+
+  const handleRequestPayment = useCallback(async () => {
+    const amt = Number(paymentAmount);
+    if (!amt || amt <= 0) {
+      toast.error("Please enter a valid positive amount");
+      return;
+    }
+    setRequestingPayment(true);
+    try {
+      const res = await fetch("/api/payments/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          amount: amt,
+          description: paymentDesc.trim(),
+          method: paymentMethod,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate payment request");
+      }
+
+      toast.success("Payment request sent successfully!");
+      setShowPaymentDialog(false);
+      setPaymentAmount("");
+      setPaymentDesc("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to request payment");
+    } finally {
+      setRequestingPayment(false);
+    }
+  }, [paymentAmount, paymentDesc, paymentMethod, conversationId]);
+
+  const adjustHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    // Max 4 lines (~96px)
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+  }, []);
+
+  const { accountId } = useAuth();
+  const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
+  const [activeShortcutMatch, setActiveShortcutMatch] = useState<{
+    query: string;
+    startIndex: number;
+    word: string;
+  } | null>(null);
+  const [selectedCannedIndex, setSelectedCannedIndex] = useState(0);
+
+  // Load canned responses and subscribe to realtime updates
+  useEffect(() => {
+    if (!accountId) return;
+    const supabase = createClient();
+    
+    const fetchCanned = async () => {
+      const { data } = await supabase
+        .from("canned_responses")
+        .select("*")
+        .order("shortcut", { ascending: true });
+      if (data) setCannedResponses(data);
+    };
+    
+    fetchCanned();
+
+    const channel = supabase
+      .channel(`public:canned_responses:org:${accountId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "canned_responses",
+          filter: `organization_id=eq.${accountId}`,
+        },
+        () => {
+          void fetchCanned();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [accountId]);
+
+
+  const handleSelectCanned = useCallback(
+    (canned: CannedResponse) => {
+      if (!activeShortcutMatch) return;
+
+      const cursor = textareaRef.current?.selectionStart ?? text.length;
+      const before = text.slice(0, activeShortcutMatch.startIndex);
+      const after = text.slice(cursor);
+
+      if (canned.media_url) {
+        const kind = getMediaKindFromUrl(canned.media_url);
+        const filename = canned.media_url.split("/").pop() || "media";
+        setDraft({
+          kind,
+          mediaUrl: canned.media_url,
+          path: "",
+          filename,
+          caption: canned.content,
+        });
+        setText(before + after);
+      } else {
+        const newText = before + canned.content + after;
+        setText(newText);
+        
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (el) {
+            el.focus();
+            const newCursorPos = before.length + canned.content.length;
+            el.setSelectionRange(newCursorPos, newCursorPos);
+            adjustHeight();
+          }
+        });
+      }
+
+      setActiveShortcutMatch(null);
+    },
+    [text, activeShortcutMatch, adjustHeight]
+  );
+
+  const matchingCanned = useMemo(() => {
+    if (!activeShortcutMatch) return [];
+    const query = activeShortcutMatch.query;
+    return cannedResponses.filter(
+      (c) => c.shortcut.toLowerCase().startsWith(query)
+    );
+  }, [cannedResponses, activeShortcutMatch]);
+
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
   const [draft, setDraft] = useState<MediaDraft | null>(null);
@@ -183,13 +339,6 @@ export function MessageComposer({
     };
   }, [clearTimer, removeStaged]);
 
-  const adjustHeight = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    // Max 4 lines (~96px)
-    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
-  }, []);
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
@@ -209,20 +358,61 @@ export function MessageComposer({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (activeShortcutMatch && matchingCanned.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedCannedIndex((prev) => (prev + 1) % matchingCanned.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedCannedIndex((prev) =>
+            prev === 0 ? matchingCanned.length - 1 : prev - 1
+          );
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          handleSelectCanned(matchingCanned[selectedCannedIndex]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setActiveShortcutMatch(null);
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [activeShortcutMatch, matchingCanned, selectedCannedIndex, handleSelectCanned, handleSend]
   );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(e.target.value);
+      const newVal = e.target.value;
+      setText(newVal);
       adjustHeight();
+      
+      const cursor = e.target.selectionStart;
+      const match = checkShortcutTrigger(newVal, cursor);
+      setActiveShortcutMatch(match);
+      setSelectedCannedIndex(0);
     },
-    [adjustHeight]
+    [adjustHeight, checkShortcutTrigger]
+  );
+
+  const handleSelect = useCallback(
+    (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+      const el = e.currentTarget;
+      const cursor = el.selectionStart;
+      const match = checkShortcutTrigger(el.value, cursor);
+      setActiveShortcutMatch(match);
+    },
+    [checkShortcutTrigger]
   );
 
   // Ask the AI assistant for a suggested reply and drop it into the
@@ -425,7 +615,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="border-t border-border bg-card p-3">
+    <div className="relative border-t border-border bg-card p-3">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -587,11 +777,73 @@ export function MessageComposer({
             )}
           </GatedButton>
 
+          <GatedButton
+            variant="ghost"
+            size="sm"
+            canAct={!readOnly}
+            gateReason="send messages"
+            title={readOnly ? undefined : "Request payment"}
+            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-emerald-500"
+            onClick={() => setShowPaymentDialog(true)}
+          >
+            <CreditCard className="h-4 w-4" />
+          </GatedButton>
+
+          {/* Canned Responses Autocomplete Overlay */}
+          {activeShortcutMatch !== null && matchingCanned.length > 0 && (
+            <div className="absolute bottom-[calc(100%+8px)] left-3 z-50 w-full max-w-sm rounded-xl border border-border/50 bg-popover/95 p-1 shadow-2xl backdrop-blur-md">
+              <div className="px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Canned Responses
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {matchingCanned.map((canned, idx) => {
+                  const isSelected = idx === selectedCannedIndex;
+                  return (
+                    <button
+                      key={canned.id}
+                      type="button"
+                      onClick={() => handleSelectCanned(canned)}
+                      onMouseEnter={() => setSelectedCannedIndex(idx)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                        isSelected
+                          ? "bg-primary-soft text-primary font-medium"
+                          : "text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/10">
+                            /{canned.shortcut}
+                          </span>
+                          {canned.media_url && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.25 rounded">
+                              + Media
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-muted-foreground font-normal">
+                          {canned.content}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
+                          ↵ Enter
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             value={text}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onSelect={handleSelect}
             placeholder={
               readOnly
                 ? "Read-only — viewers can browse but not reply"
@@ -632,6 +884,77 @@ export function MessageComposer({
           Tap the ✨ to draft a reply with AI — you can edit it before sending
         </p>
       )}
+      {/* Payment Request Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={(open) => !open && setShowPaymentDialog(false)}>
+        <DialogContent className="sm:max-w-[420px] border-border/80 bg-neutral-950/95 backdrop-blur-2xl text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground text-sm font-semibold">
+              <CreditCard className="w-4 h-4 text-emerald-400" />
+              Generate Payment Request
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Generate a checkout payment link or scan-to-pay UPI QR code. The request will automatically be sent to the customer on WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 text-foreground text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Amount (INR)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0.00"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="bg-neutral-900 border-neutral-850 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Purpose / Description</Label>
+              <Input
+                placeholder="e.g. Booking deposit"
+                value={paymentDesc}
+                onChange={(e) => setPaymentDesc(e.target.value)}
+                className="bg-neutral-900 border-neutral-850 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Payment Method</Label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as any)}
+                className="w-full rounded-md border border-neutral-850 bg-neutral-900 px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+              >
+                <option value="upi">UPI QR Code (Scan to Pay — Zero Commission)</option>
+                <option value="razorpay">Razorpay Checkout Link (Card/UPI/Netbanking)</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs hover:bg-neutral-900"
+              onClick={() => setShowPaymentDialog(false)}
+              disabled={requestingPayment}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              onClick={handleRequestPayment}
+              disabled={requestingPayment || !paymentAmount}
+            >
+              {requestingPayment ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                "Generate & Send Link"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

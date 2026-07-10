@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import type { Contact, Deal, ContactNote, Tag, CustomField } from "@/types";
 import {
   Phone,
   Mail,
@@ -13,10 +13,14 @@ import {
   DollarSign,
   StickyNote,
   Plus,
+  Save,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -30,14 +34,19 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [loadingCustom, setLoadingCustom] = useState(false);
+  const [savingCustom, setSavingCustom] = useState(false);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
+    setLoadingCustom(true);
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, notes, tags, fields, and values in parallel
+    const [dealsRes, notesRes, tagsRes, fieldsRes, valuesRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -52,6 +61,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      supabase
+        .from("custom_fields")
+        .select("*")
+        .order("field_name"),
+      supabase
+        .from("contact_custom_values")
+        .select("*")
+        .eq("contact_id", contact.id),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -65,7 +82,53 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
+    if (fieldsRes.data) setCustomFields(fieldsRes.data);
+    if (valuesRes.data) {
+      const map: Record<string, string> = {};
+      valuesRes.data.forEach((v) => {
+        map[v.custom_field_id] = v.value ?? "";
+      });
+      setCustomValues(map);
+    } else {
+      setCustomValues({});
+    }
+    setLoadingCustom(false);
   }, [contact]);
+
+  const handleSaveCustomFields = useCallback(async () => {
+    if (!contact) return;
+    setSavingCustom(true);
+
+    const supabase = createClient();
+    try {
+      // Delete existing and re-insert
+      await supabase
+        .from("contact_custom_values")
+        .delete()
+        .eq("contact_id", contact.id);
+
+      const rows = Object.entries(customValues)
+        .filter(([, val]) => val.trim())
+        .map(([fieldId, val]) => ({
+          contact_id: contact.id,
+          custom_field_id: fieldId,
+          value: val.trim(),
+        }));
+
+      if (rows.length > 0) {
+        const { error } = await supabase
+          .from("contact_custom_values")
+          .insert(rows);
+        if (error) throw error;
+      }
+      toast.success("Custom fields saved");
+    } catch (err) {
+      console.error("Save custom fields failed:", err);
+      toast.error("Failed to save custom fields");
+    } finally {
+      setSavingCustom(false);
+    }
+  }, [contact, customValues]);
 
   // Load on contact change. setContactData/setTags run inside async
   // Supabase callbacks, not synchronously in the effect body.
@@ -200,6 +263,88 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 ))
               )}
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="my-4 border-t border-border" />
+
+          {/* Custom Fields */}
+          <div>
+            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <Sparkles className="h-3 w-3" />
+              Custom Fields
+            </div>
+            {loadingCustom ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : customFields.length === 0 ? (
+              <p className="px-1 mt-2 text-xs text-muted-foreground">No custom fields defined.</p>
+            ) : (
+              <div className="mt-3 space-y-3 px-1">
+                {customFields.map((field) => {
+                  const options = Array.isArray(field.field_options)
+                    ? field.field_options
+                    : (field.field_options?.options && Array.isArray(field.field_options.options))
+                      ? field.field_options.options
+                      : null;
+
+                  return (
+                    <div key={field.id} className="space-y-1">
+                      <label className="text-[11px] font-semibold text-muted-foreground capitalize">
+                        {field.field_name}
+                      </label>
+                      {field.field_type === 'select' && options ? (
+                        <select
+                          value={customValues[field.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+                        >
+                          <option value="">Select option...</option>
+                          {options.map((opt) => (
+                            <option key={String(opt)} value={String(opt)}>
+                              {String(opt)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.field_type === 'number' ? 'number' : 'text'}
+                          value={customValues[field.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Enter ${field.field_name}...`}
+                          className="w-full rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                <Button
+                  size="sm"
+                  onClick={handleSaveCustomFields}
+                  disabled={savingCustom}
+                  className="w-full h-8 mt-2 bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center justify-center gap-1.5"
+                >
+                  {savingCustom ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  Save Fields
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Divider */}

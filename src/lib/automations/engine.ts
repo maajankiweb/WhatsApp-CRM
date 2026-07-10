@@ -16,6 +16,7 @@ import type {
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate } from './meta-send'
+import { derivePresence, type StoredPresence } from '../presence'
 
 // ------------------------------------------------------------
 // Public API
@@ -427,15 +428,66 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('assign_conversation needs a contact')
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
-        // Pick any member of the account. The existing implementation
-        // only ever returned the automation's author; preserving that
-        // shape until a real round-robin algorithm replaces it.
-        const { data: profiles } = await db
-          .from('profiles')
-          .select('user_id')
-          .eq('account_id', args.automation.account_id)
-          .limit(1)
-        agentId = profiles?.[0]?.user_id
+        const { data: eligibleMembers } = await db
+          .from('user_organizations')
+          .select('user_id, role')
+          .eq('organization_id', args.automation.account_id)
+          .in('role', ['owner', 'admin', 'agent'])
+
+        if (eligibleMembers && eligibleMembers.length > 0) {
+          const { data: presence } = await db
+            .from('member_presence')
+            .select('user_id, status, last_seen_at')
+            .eq('organization_id', args.automation.account_id)
+
+          const onlineUserIds = new Set<string>()
+          const now = Date.now()
+          if (presence) {
+            presence.forEach((row) => {
+              if (derivePresence(row.status as StoredPresence, row.last_seen_at, now) === 'online') {
+                onlineUserIds.add(row.user_id)
+              }
+            })
+          }
+
+          let targetMembers = eligibleMembers.filter((m) => onlineUserIds.has(m.user_id))
+          if (targetMembers.length === 0) {
+            targetMembers = eligibleMembers
+          }
+
+          targetMembers.sort((a, b) => a.user_id.localeCompare(b.user_id))
+
+          const { data: lastAssigned } = await db
+            .from('conversations')
+            .select('assigned_agent_id')
+            .eq('organization_id', args.automation.account_id)
+            .not('assigned_agent_id', 'is', null)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          let nextIndex = 0
+          if (lastAssigned?.assigned_agent_id) {
+            const lastIndex = targetMembers.findIndex(
+              (m) => m.user_id === lastAssigned.assigned_agent_id
+            )
+            if (lastIndex !== -1) {
+              nextIndex = (lastIndex + 1) % targetMembers.length
+            }
+          }
+
+          agentId = targetMembers[nextIndex]?.user_id
+        }
+
+        // Fallback to any profile member for backward compatibility / tests
+        if (!agentId) {
+          const { data: profiles } = await db
+            .from('profiles')
+            .select('user_id')
+            .eq('account_id', args.automation.account_id)
+            .limit(1)
+          agentId = profiles?.[0]?.user_id
+        }
       }
       if (!agentId) return 'no agent resolved'
       await db
@@ -597,6 +649,25 @@ function triggerMatches(automation: Automation, ctx: AutomationContext | undefin
 async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): Promise<boolean> {
   const db = supabaseAdmin()
   switch (cfg.subject) {
+    case 'outside_business_hours': {
+      try {
+        const { data: bh } = await db
+          .from('business_hours')
+          .select('*')
+          .eq('organization_id', args.automation.account_id)
+          .maybeSingle()
+
+        if (!bh || !bh.is_enabled) {
+          return false
+        }
+
+        const { isOutsideBusinessHours } = await import('../business-hours')
+        return isOutsideBusinessHours(new Date(), bh.timezone, bh.daily_hours)
+      } catch (err) {
+        console.error('[engine] outside_business_hours condition failed:', err)
+        return false
+      }
+    }
     case 'tag_presence': {
       if (!args.contactId || !cfg.operand) return false
       // contact_tags has no account_id column (its RLS keys off the parent

@@ -51,6 +51,17 @@ vi.mock('@/lib/ai/auto-reply', () => ({
   dispatchInboundToAiReply: vi.fn().mockResolvedValue(undefined),
 }))
 
+export const mockIsOutsideBusinessHours = vi.fn(() => false)
+vi.mock('@/lib/business-hours', () => ({
+  isOutsideBusinessHours: () => mockIsOutsideBusinessHours(),
+}))
+
+export const mockEngineSendText = vi.fn().mockResolvedValue({ whatsapp_message_id: 'mock-ooo-msg' })
+vi.mock('@/lib/automations/meta-send', () => ({
+  engineSendText: (args: any) => mockEngineSendText(args),
+  engineSendTemplate: vi.fn(),
+}))
+
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: vi.fn().mockResolvedValue(undefined),
 }))
@@ -614,6 +625,99 @@ describe('POST /api/whatsapp/webhook', () => {
     // Verify it was saved with the interactive reply ID
     const insertCalls = mockFrom.mock.calls.filter(c => c[0] === 'messages')
     expect(insertCalls.length).toBeGreaterThan(0)
+  })
+
+  it('triggers OOO reply and skips other dispatch handlers when outside business hours', async () => {
+    mockIsOutsideBusinessHours.mockReturnValue(true)
+    mockEngineSendText.mockClear()
+
+    const payload = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'waba-id',
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: {
+                  display_phone_number: '12345',
+                  phone_number_id: 'valid-phone-id',
+                },
+                contacts: [{ profile: { name: 'Alice' }, wa_id: '12345' }],
+                messages: [
+                  {
+                    id: 'msg-id-ooo',
+                    from: '12345',
+                    timestamp: '1783077575',
+                    type: 'text',
+                    text: { body: 'hello outside hours' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    mockQueryResult['waba_connections'] = {
+      data: {
+        organization_id: 'org-uuid-123',
+        access_token_encrypted: 'ivHex:ctHex:tagHex',
+      },
+      error: null,
+    }
+
+    mockQueryResult['user_organizations'] = {
+      data: { user_id: 'owner-user-uuid' },
+      error: null,
+    }
+
+    mockQueryResult['contacts'] = [
+      { data: null, error: null },
+      { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
+    ]
+
+    mockQueryResult['conversations'] = [
+      { data: null, error: null },
+      { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
+      { data: null, error: null },
+      { error: null },
+    ]
+
+    mockQueryResult['messages'] = [
+      { count: 0, error: null },
+      { data: { id: 'inserted-msg-uuid' }, error: null },
+    ]
+
+    mockQueryResult['broadcast_recipients'] = [
+      { data: null, error: null },
+    ]
+
+    mockQueryResult['business_hours'] = {
+      data: {
+        is_enabled: true,
+        timezone: 'Asia/Kolkata',
+        ooo_message: 'We are closed!',
+        daily_hours: {},
+      },
+      error: null,
+    }
+
+    const req = createReq(payload)
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    await Promise.all(afterPromises)
+
+    expect(mockIsOutsideBusinessHours).toHaveBeenCalled()
+    expect(mockEngineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'org-uuid-123',
+        text: 'We are closed!',
+      })
+    )
   })
 })
 

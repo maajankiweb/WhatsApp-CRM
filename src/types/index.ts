@@ -488,7 +488,8 @@ export type ConditionSubject =
   | 'contact_field'
   | 'tag_presence'
   | 'message_content'
-  | 'time_of_day';
+  | 'time_of_day'
+  | 'outside_business_hours';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;
@@ -567,3 +568,19 @@ export interface AutomationLog {
   created_at: string;
   contact?: Contact;
 }
+
+// ============================================================
+// Canned Responses (Quick Replies) (Roadmap 1.1)
+// ============================================================
+
+export interface CannedResponse {
+  id: string;
+  account_id: string;
+  organization_id: string;
+  shortcut: string;
+  content: string;
+  media_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
