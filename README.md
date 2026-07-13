@@ -23,37 +23,19 @@ clone or fork it to run your own CRM.
 
 ## What you get out of the box
 
-- **Shared inbox** on the official WhatsApp Business API — multiple
-  agents working one number, per-conversation assignment, status, and
-  notes.
-- **Contacts + tags + custom fields**, CSV import, deduplication.
-- **Sales pipelines** (Kanban) with deals linked to conversations.
-- **Broadcasts** with Meta-approved templates, delivery + read
-  tracking, per-recipient variable substitution.
-- **No-code automations** — triggers on inbound messages, new
-  contacts, keywords, or schedule; conditional branches, waits,
-  tags, webhooks. Visual builder.
-- **AI reply assistant** — bring your own OpenAI or Anthropic key
-  (stored encrypted; no per-seat AI fee, your data stays yours).
-  One-click AI-drafted replies in the inbox, plus an optional
-  auto-reply bot with a per-conversation cap and clean human handoff.
-  Add a **knowledge base** (FAQs, policies, product docs) and it
-  answers from your own content — hybrid retrieval (Postgres full-text,
-  or semantic pgvector when an embeddings key is set).
-- **Real-time dashboard** — response times, daily volume, pipeline
-  value, cross-module activity feed.
-- **Team accounts** — invite teammates by link, role-based access
-  (owner / admin / agent / viewer), ownership transfer. Every install
-  is account-scoped, so one shared inbox can be staffed by a whole
-  team. Solo use stays single-user with zero setup.
-- **Account management** — email, password, avatar, global sign-out.
-- **Public REST API** (`/api/v1`) with scoped, revocable API keys —
-  build your own automations on top of your CRM. See
-  [docs/public-api.md](./docs/public-api.md).
-- **MCP server** — drive your CRM from Claude, Cursor, and other AI
-  assistants over the [Model Context Protocol](https://modelcontextprotocol.io).
-  Read-only by default, opt-in writes. See [docs/mcp.md](./docs/mcp.md)
-  (server in [`mcp-server/`](./mcp-server)).
+- **SaaS Split-Screen Authentication**: Redesigned **Login**, **Signup**, and **Forgot Password** pages featuring a desktop product showcase carousel, glassmorphic card overlays, custom inputs with animations, and OAuth/Google Sign-In integration.
+- **Shared Inbox**: Multiple agents staffing a single WhatsApp number. Direct conversation assignment, internal notes, unread status indicators, and agent performance tracking.
+- **No-Code Automations**: Visual drag-and-drop workflow builder. Triggers on inbound messages, new contacts, keywords, or cron schedules; contains action nodes (send template, add tag, create deal, trigger webhooks), wait delays, and conditional branches.
+- **Sales Pipelines (Kanban)**: Track deal stages, assign lead statuses, configure follow-up variables, and monitor customer parameters directly from a Kanban board where deals are linked directly to chat logs.
+- **AI Support Assistant & Knowledge Base**: Powered by OpenAI, Gemini, or Nvidia NIM. Automatically queries your custom knowledge base (using hybrid Postgres full-text or pgvector semantic embeddings) to resolve FAQs with custom conversation caps and seamless human handoffs.
+- **GST Billing & Invoices**: Create and send professional, GST-compliant invoices directly inside WhatsApp (PDF invoices, payment reminders, and receipts powered by InvoBill).
+- **School ERP Sync**: Pre-integrated with school management ERPs to broadcast fee alerts, student attendance reports, and exam results via automated templates.
+- **White-Label Reseller Portal**: Map custom agency domains (CNAME mapping), configure reseller SMTP servers, customize dashboard CSS themes, logos, and favicons, and sell subscription packages directly to your clients.
+- **Real-Time Analytics Dashboard**: Live metrics tracking (Open Convos, New Today, Avg Reply) and visual SVG graphs mapping incoming vs. outgoing messaging traffic over time.
+- **Contacts + Tags + Custom Fields**: CSV lists upload, deduplication, custom parameters filtering, and dynamic segment management.
+- **Broadcast Campaigns**: Send official Meta-approved template notifications with recipient variable substitution, delivery rates, and read tracking.
+- **Public REST API & Model Context Protocol (MCP) Server**: Full REST API (`/api/v1`) with revocable API keys, and built-in MCP server support to drive your CRM securely from AI assistants like Claude or Cursor.
+- **Modern Styling & Typographic Balancing**: Powered by Tailwind CSS v4 with custom variable scaling (e.g. 22px typography mapping) for optimal visual aesthetics.
 
 ## Why fork this?
 
