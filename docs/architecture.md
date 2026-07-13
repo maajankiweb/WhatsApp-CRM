@@ -115,3 +115,8 @@ Subscriptions restrict usage metrics. The `checkQuota` utility (in `src/lib/bill
 - `src/lib/automations/`: Automated keyword triggers and workflows execution.
 - `src/lib/flows/`: Visual drag-and-drop chat flow logic.
 - `supabase/migrations/`: SQL migration files defining schema structure & RLS rules.
+
+---
+
+## 6. Architecture Comparisons
+For a detailed technical comparison of this codebase's PostgreSQL/Supabase multi-tenant SaaS architecture against alternative database architectures (e.g. MySQL/Prisma in ChatNexGen V2), see the [Architecture Comparison Guide](file:///f:/WhatsApp%20CRM/docs/comparison-v2.md).
