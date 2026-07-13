@@ -59,11 +59,12 @@ describe('parseGeneration', () => {
 
 describe('generateReply — OpenAI', () => {
   it('calls the chat completions endpoint and returns the reply', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        okResponse({ choices: [{ message: { content: 'Sure — happy to help!' } }] }),
-      )
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        choices: [{ message: { content: 'Sure — happy to help!' } }],
+        usage: { prompt_tokens: 42, completion_tokens: 8, total_tokens: 50 },
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await generateReply({
@@ -112,9 +113,12 @@ describe('generateReply — OpenAI', () => {
 
 describe('generateReply — Anthropic', () => {
   it('calls the messages endpoint with the version header and parses text blocks', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(okResponse({ content: [{ type: 'text', text: 'Hi there!' }] }))
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        content: [{ type: 'text', text: 'Hi there!' }],
+        usage: { input_tokens: 30, output_tokens: 6 },
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await generateReply({

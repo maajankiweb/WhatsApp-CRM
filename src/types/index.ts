@@ -467,6 +467,14 @@ export interface SendMessageStepConfig {
   text: string;
 }
 
+/**
+ * `send_buttons` / `send_list` step configs carry the full interactive
+ * payload (same shape stored on messages + quick replies). `kind` is
+ * implied by the step_type but kept on the payload for a uniform shape.
+ */
+export type SendButtonsStepConfig = InteractiveMessagePayload;
+export type SendListStepConfig = InteractiveMessagePayload;
+
 export interface SendTemplateStepConfig {
   template_name: string;
   language?: string;

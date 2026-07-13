@@ -66,7 +66,7 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   }
 }
 
-function MediaUnavailable({ label }: { label: string }) {
+function MediaUnavailable({ label, t }: { label: string, t: ReturnType<typeof useTranslations> }) {
   return (
     <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       <ImageOff className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -138,7 +138,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
-function MessageContent({ message }: { message: Message }) {
+function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof useTranslations> }) {
   switch (message.content_type) {
     case "text":
       return (
@@ -284,6 +284,8 @@ export function MessageBubble({
   currentUserId,
   onToggleReaction,
 }: MessageBubbleProps) {
+  const t = useTranslations("Inbox.bubble");
+
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
   const time = format(new Date(message.created_at), "HH:mm");
 
@@ -311,7 +313,7 @@ export function MessageBubble({
             onPrimary={isAgent}
           />
         )}
-        <MessageContent message={message} />
+        <MessageContent message={message} t={t} />
         <div
           className={cn(
             "mt-1 flex items-center gap-1",

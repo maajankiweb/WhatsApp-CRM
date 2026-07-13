@@ -1,4 +1,10 @@
-import { AiError, type AiConfig, type ChatMessage, type GenerateResult } from './types'
+import {
+  AiError,
+  type AiConfig,
+  type AiUsage,
+  type ChatMessage,
+  type GenerateResult,
+} from './types'
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
 import { generateOpenAi } from './providers/openai'
 import { generateAnthropic } from './providers/anthropic'
@@ -28,13 +34,13 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
     timeoutMs,
   }
 
-  let raw: string
+  let result: { text: string; usage: AiUsage | null }
   switch (config.provider) {
     case 'openai':
-      raw = await generateOpenAi(providerArgs)
+      result = await generateOpenAi(providerArgs)
       break
     case 'anthropic':
-      raw = await generateAnthropic(providerArgs)
+      result = await generateAnthropic(providerArgs)
       break
     case 'gemini':
       raw = await generateGemini(providerArgs)
@@ -46,15 +52,20 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
       })
   }
 
-  return parseGeneration(raw)
+  return parseGeneration(result.text, result.usage)
 }
 
 /**
- * Split the raw model output into `{ text, handoff }`. The sentinel can
- * appear alone or trailing a partial reply; either way we treat the
- * turn as a handoff and strip the marker from any remaining text.
+ * Split the raw model output into `{ text, handoff, usage }`. The
+ * sentinel can appear alone or trailing a partial reply; either way we
+ * treat the turn as a handoff and strip the marker from any remaining
+ * text. `usage` is passed straight through (null when the provider
+ * didn't report it).
  */
-export function parseGeneration(raw: string): GenerateResult {
+export function parseGeneration(
+  raw: string,
+  usage: AiUsage | null = null,
+): GenerateResult {
   const handoff = raw.includes(HANDOFF_SENTINEL)
   const text = raw.split(HANDOFF_SENTINEL).join('').trim()
   return { text, handoff, usage: null }

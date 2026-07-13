@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 // next-intl is not installed; useTranslations is a passthrough stub
 const useTranslations = (_ns: string) => (key: string, ..._args: unknown[]) => key
