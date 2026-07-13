@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, Building2, ArrowRight, Loader2, UsersRound } from "lucide-react";
+import { AuthShowcase } from "@/components/auth/auth-showcase";
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
@@ -85,20 +86,17 @@ function SignupPageInner() {
     async function checkUserSession() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // If they have an invite token, forward them to the join flow
         if (inviteToken) {
           router.push(`/join/${encodeURIComponent(inviteToken)}`);
           return;
         }
 
-        // Check if user is associated with any organization
         const { data: orgs } = await supabase
           .from("user_organizations")
           .select("organization_id, role, organizations(slug)")
           .eq("user_id", user.id);
 
         if (orgs && orgs.length > 0) {
-          // User already belongs to an organization, redirect to it
           const orgData = orgs[0].organizations as
             | { slug: string }
             | { slug: string }[]
@@ -113,7 +111,6 @@ function SignupPageInner() {
             setStep("org");
           }
         } else {
-          // Logged in but no organization, skip directly to org creation
           setStep("org");
         }
       }
@@ -125,8 +122,8 @@ function SignupPageInner() {
   const generateSlug = (name: string): string => {
     return name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric chars with hyphens
-      .replace(/^-+|-+$/g, "");   // Remove leading/trailing hyphens
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   };
 
   // Handler for Org Name input change
@@ -143,13 +140,12 @@ function SignupPageInner() {
   // Handler for Org Slug input change
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSlugModified(true);
-    // Force lowercase, alphanumeric and hyphens format on typing
     const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setOrgSlug(val);
     validateSlug(val);
   };
 
-  // Validate slug client-side and trigger debounced database check
+  // Validate slug
   const validateSlug = (slug: string) => {
     if (checkTimeoutRef.current) {
       clearTimeout(checkTimeoutRef.current);
@@ -170,17 +166,15 @@ function SignupPageInner() {
       return;
     }
 
-    // Slug format regex check
     const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
     if (!slugRegex.test(slug)) {
-      setSlugError("Slug must contain only lowercase alphanumeric characters and hyphens, and cannot start or end with a hyphen.");
+      setSlugError("Slug must contain only lowercase alphanumeric characters and hyphens.");
       return;
     }
 
     setSlugError(null);
     setSlugChecking(true);
 
-    // Debounce the Supabase query to check availability
     checkTimeoutRef.current = setTimeout(async () => {
       try {
         const { data, error } = await supabase
@@ -243,14 +237,12 @@ function SignupPageInner() {
     }
 
     if (data.session) {
-      // Email confirmation is disabled, user is immediately logged in
       if (inviteToken) {
         router.push(`/join/${encodeURIComponent(inviteToken)}`);
       } else {
         setStep("org");
       }
     } else {
-      // Verification email sent
       setStep("verify-email");
     }
     setLoading(false);
@@ -291,7 +283,6 @@ function SignupPageInner() {
     setLoading(true);
 
     try {
-      // Call the atomic postgres function via RPC
       const { data, error } = await supabase.rpc("create_organization_with_owner", {
         p_name: orgName,
         p_slug: orgSlug,
@@ -308,7 +299,6 @@ function SignupPageInner() {
         return;
       }
 
-      // Successful creation, redirect to dashboard
       redirectToDashboard(orgSlug);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
@@ -317,283 +307,306 @@ function SignupPageInner() {
     }
   };
 
-  // Render Step 1: Sign Up
-  if (step === "auth") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-        <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
-              {inviteToken ? (
-                <UsersRound className="h-6 w-6 text-indigo-400" />
-              ) : (
-                <MessageSquare className="h-6 w-6 text-indigo-400" />
-              )}
+  return (
+    <div className="grid min-h-screen grid-cols-12 bg-slate-950 text-slate-100 overflow-x-hidden relative">
+      {/* Decorative gradient for the whole page */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950 to-slate-950 pointer-events-none" />
+
+      {/* Left panel: Product Showcase (visible on large screen) */}
+      <AuthShowcase />
+
+      {/* Right panel: Form Container */}
+      <div className="flex flex-col justify-center items-center col-span-12 lg:col-span-6 xl:col-span-5 px-4 md:px-8 py-12 relative z-10">
+        <div className="w-full max-w-md flex flex-col gap-6">
+          {/* Mobile Logo Header */}
+          <div className="flex items-center gap-3 lg:hidden justify-center mb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-600 to-emerald-500 shadow-lg shadow-indigo-500/25">
+              <svg className="h-5.5 w-5.5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.48.36 2.87 1 4.1L3 21l4.9-1c1.24.64 2.62 1 4.1 1Z"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="12" r="2" className="fill-emerald-400 animate-pulse" />
+                <path d="M8 12h0.01M16 12h0.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-              {inviteToken ? "Create account & join" : "Create account"}
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-sm">
-              {inviteToken
-                ? "Verify your details, then join your team workspace."
-                : "Get started with Wachatra CRM"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <div className="mb-4 rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
+            <div className="flex flex-col text-left">
+              <span className="text-lg font-bold tracking-tight text-white leading-none">Wachatra</span>
+              <span className="text-[10px] text-indigo-400/80 mt-1 font-bold tracking-wider uppercase">Business OS</span>
+            </div>
+          </div>
+
+          <Card className="border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-2xl p-2 sm:p-4 rounded-2xl ring-1 ring-white/5">
+            {step === "auth" && (
+              <>
+                <CardHeader className="items-center text-center pb-4">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                    {inviteToken ? (
+                      <UsersRound className="h-5 w-5 text-indigo-400" />
+                    ) : (
+                      <MessageSquare className="h-5 w-5 text-indigo-400" />
+                    )}
+                  </div>
+                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    {inviteToken ? "Create account & join" : "Create account"}
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm mt-1">
+                    {inviteToken
+                      ? "Verify your details, then join your team workspace."
+                      : "Get started with Wachatra CRM"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-xs text-red-400">
+                      {error}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleCredentialsSignup} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="fullName" className="text-slate-300 text-xs font-semibold">
+                        Full Name
+                      </Label>
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="John Doe"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                        className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="email" className="text-slate-300 text-xs font-semibold">
+                        Email Address
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="password" className="text-slate-300 text-xs font-semibold">
+                        Password
+                      </Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Minimum 6 characters"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="confirmPassword" className="text-slate-300 text-xs font-semibold">
+                        Confirm Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="Repeat password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 rounded-xl"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="mt-2 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all rounded-xl disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-white" />
+                          Creating account...
+                        </span>
+                      ) : (
+                        "Create Account"
+                      )}
+                    </Button>
+                  </form>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/5" />
+                    </div>
+                    <div className="relative flex justify-center text-[10px] uppercase">
+                      <span className="bg-[#121827] px-2 text-slate-500">Or continue with</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGoogleSignup}
+                    className="w-full h-10 border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-300 transition-all font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <GoogleIcon className="h-4 w-4" />
+                    Sign up with Google
+                  </Button>
+
+                  <p className="mt-6 text-center text-xs text-slate-400">
+                    Already have an account?{" "}
+                    <Link
+                      href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}
+                      className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold"
+                    >
+                      Sign in
+                    </Link>
+                  </p>
+                </CardContent>
+              </>
             )}
 
-            <form onSubmit={handleCredentialsSignup} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="fullName" className="text-slate-300 text-xs font-semibold">
-                  Full Name
-                </Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
-                />
-              </div>
+            {step === "verify-email" && (
+              <>
+                <CardHeader className="items-center text-center pb-4">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                    <CheckCircle className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    Check your inbox
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm mt-1">
+                    We&apos;ve sent a confirmation link to{" "}
+                    <span className="text-white font-semibold">{email}</span>.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-slate-500 text-center leading-relaxed">
+                    {inviteToken
+                      ? "Please click the link inside the email to verify, then accept the invitation."
+                      : "Once you click the link inside the email, we will verify your session and prompt you to create your organization."}
+                  </p>
+                  <Link href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}>
+                    <Button
+                      variant="outline"
+                      className="w-full border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-400 hover:border-white/10 rounded-xl"
+                    >
+                      Back to sign in
+                    </Button>
+                  </Link>
+                </CardContent>
+              </>
+            )}
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email" className="text-slate-300 text-xs font-semibold">
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
-                />
-              </div>
+            {step === "org" && (
+              <>
+                <CardHeader className="items-center text-center pb-4">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                    <Building2 className="h-5 w-5 text-indigo-400" />
+                  </div>
+                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    Setup your business
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm mt-1">
+                    Create an organization to launch your CRM
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-xs text-red-400">
+                      {error}
+                    </div>
+                  )}
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password" className="text-slate-300 text-xs font-semibold">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Minimum 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
-                />
-              </div>
+                  <form onSubmit={handleCreateOrganization} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="orgName" className="text-slate-300 text-xs font-semibold">
+                        Organization Name
+                      </Label>
+                      <Input
+                        id="orgName"
+                        type="text"
+                        placeholder="Acme Corp"
+                        value={orgName}
+                        onChange={handleOrgNameChange}
+                        required
+                        className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 rounded-xl"
+                      />
+                    </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="confirmPassword" className="text-slate-300 text-xs font-semibold">
-                  Confirm Password
-                </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Repeat password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
-                />
-              </div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="orgSlug" className="text-slate-300 text-xs font-semibold">
+                          Workspace URL Slug
+                        </Label>
+                        {slugChecking && (
+                          <span className="text-[10px] text-indigo-400 flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Checking...
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative flex items-center">
+                        <Input
+                          id="orgSlug"
+                          type="text"
+                          placeholder="acme-corp"
+                          value={orgSlug}
+                          onChange={handleSlugChange}
+                          required
+                          className={`border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500/20 rounded-xl ${
+                            slugError 
+                              ? "border-red-500/30 focus-visible:border-red-500" 
+                              : orgSlug && !slugChecking 
+                                ? "border-emerald-500/30 focus-visible:border-emerald-500" 
+                                : "focus-visible:border-indigo-500"
+                          }`}
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        {typeof window !== "undefined" && window.location.origin.includes("localhost")
+                          ? `Your URL: ${window.location.origin}/dashboard?org=${orgSlug || "acme-corp"}`
+                          : `Your URL: https://${orgSlug || "acme-corp"}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "wachatra.com"}/app/dashboard`
+                        }
+                      </p>
+                      {slugError && (
+                        <p className="text-xs text-red-400 mt-0.5 leading-tight">{slugError}</p>
+                      )}
+                    </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="mt-2 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating account...
-                  </span>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </form>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/5" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-slate-900/60 px-2 text-slate-500">Or continue with</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleGoogleSignup}
-              className="w-full h-10 border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-300 transition-all font-semibold flex items-center justify-center gap-2"
-            >
-              <GoogleIcon className="h-4 w-4" />
-              Sign up with Google
-            </Button>
-
-            <p className="mt-6 text-center text-xs text-slate-400">
-              Already have an account?{" "}
-              <Link
-                href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}
-                className="text-indigo-400 hover:text-indigo-300 transition-all font-semibold"
-              >
-                Sign in
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+                    <Button
+                      type="submit"
+                      disabled={loading || !!slugError || slugChecking || !orgSlug}
+                      className="mt-4 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all rounded-xl disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Creating workspace...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-1.5">
+                          Launch Workspace
+                          <ArrowRight className="h-4 w-4" />
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </>
+            )}
+          </Card>
+        </div>
       </div>
-    );
-  }
-
-  // Render Step 1.5: Verify Email
-  if (step === "verify-email") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-        <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-              <CheckCircle className="h-6 w-6 text-emerald-400" />
-            </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-              Check your inbox
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-sm">
-              We&apos;ve sent a confirmation link to <span className="text-white font-semibold">{email}</span>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-slate-500 text-center leading-relaxed">
-              {inviteToken
-                ? "Please click the link inside the email to verify, then accept the invitation."
-                : "Once you click the link inside the email, we will verify your session and prompt you to create your organization."}
-            </p>
-            <Link href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}>
-              <Button
-                variant="outline"
-                className="w-full border-white/5 bg-slate-950/30 hover:bg-slate-950/60 hover:text-white text-slate-400 hover:border-white/10"
-              >
-                Back to sign in
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Render Step 2: Create Organization
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-      <Card className="relative w-full max-w-md border-white/5 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
-            <Building2 className="h-6 w-6 text-indigo-400" />
-          </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Setup your business
-          </CardTitle>
-          <CardDescription className="text-slate-400 text-sm">
-            Create an organization to launch your CRM
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleCreateOrganization} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="orgName" className="text-slate-300 text-xs font-semibold">
-                Organization Name
-              </Label>
-              <Input
-                id="orgName"
-                type="text"
-                placeholder="Acme Corp"
-                value={orgName}
-                onChange={handleOrgNameChange}
-                required
-                className="border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="orgSlug" className="text-slate-300 text-xs font-semibold">
-                  Workspace URL Slug
-                </Label>
-                {slugChecking && (
-                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
-                    Checking...
-                  </span>
-                )}
-              </div>
-              <div className="relative flex items-center">
-                <Input
-                  id="orgSlug"
-                  type="text"
-                  placeholder="acme-corp"
-                  value={orgSlug}
-                  onChange={handleSlugChange}
-                  required
-                  className={`border-white/5 bg-slate-950/40 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500/20 ${
-                    slugError 
-                      ? "border-red-500/30 focus-visible:border-red-500" 
-                      : orgSlug && !slugChecking 
-                        ? "border-emerald-500/30 focus-visible:border-emerald-500" 
-                        : "focus-visible:border-indigo-500"
-                  }`}
-                />
-              </div>
-              <p className="text-[10px] text-slate-500 leading-tight">
-                {process.env.NODE_ENV === "development" 
-                  ? `Your URL: ${window.location.origin}/dashboard?org=${orgSlug || "acme-corp"}` 
-                  : `Your URL: https://${orgSlug || "acme-corp"}.${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "wachatra.com"}/app/dashboard`
-                }
-              </p>
-              {slugError && (
-                <p className="text-xs text-red-400 mt-0.5 leading-tight">{slugError}</p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading || !!slugError || slugChecking || !orgSlug}
-              className="mt-4 h-10 w-full bg-indigo-600 font-semibold text-white hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating workspace...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-1.5">
-                  Launch Workspace
-                  <ArrowRight className="h-4 w-4" />
-                </span>
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
     </div>
   );
 }

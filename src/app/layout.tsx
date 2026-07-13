@@ -22,25 +22,23 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Wachatra - Self-Hostable CRM for WhatsApp",
+    default: "Wachatra - Premium WhatsApp CRM & Business Automation Platform",
     template: "%s — Wachatra",
   },
-  description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations. Fork it, brand it, host it.",
+  description: "Manage leads, automate customer communication, build visual chatbot flows, and scale your business with Wachatra's official Meta WhatsApp API platform.",
   keywords: [
-    "CRM",
-    "WhatsApp",
+    "Wachatra",
+    "WhatsApp CRM",
     "WhatsApp Business API",
-    "Next.js",
-    "Supabase",
-    "automation",
-    "broadcast",
-    "self-hosted",
-    "template",
-    "open-source",
-    "customer support",
-    "sales pipeline",
-    "Kanban",
-    "AI assistant",
+    "Shared Inbox",
+    "No-code Chatbot Builder",
+    "Multi-tenant SaaS",
+    "Razorpay Subscription CRM",
+    "India SMB CRM",
+    "Customer Engagement",
+    "Automations",
+    "Visual Flow Builder",
+    "Meta Cloud API"
   ],
   authors: [{ name: "Ashish Kumar" }],
   creator: "Ashish Kumar",
@@ -50,21 +48,21 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://wachatra.com",
     siteName: "Wachatra",
-    title: "Wachatra - Self-Hostable CRM for WhatsApp",
-    description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+    title: "Wachatra - Premium WhatsApp CRM & Business Automation Platform",
+    description: "Manage leads, automate customer communication, build visual chatbot flows, and scale your business with Wachatra's official Meta WhatsApp API platform.",
     images: [
       {
         url: "https://wachatra.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Wachatra - Self-Hostable CRM for WhatsApp",
+        alt: "Wachatra - Premium WhatsApp CRM & Business Automation Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Wachatra - Self-Hostable CRM for WhatsApp",
-    description: "Self-hostable CRM template for WhatsApp — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+    title: "Wachatra - Premium WhatsApp CRM & Business Automation Platform",
+    description: "Manage leads, automate customer communication, build visual chatbot flows, and scale your business with Wachatra's official Meta WhatsApp API platform.",
     images: ["https://wachatra.com/og-image.png"],
     creator: "@maajankiweb",
   },
@@ -80,12 +78,12 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: [{ url: "/favicon-32x32.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/favicon-32x32.svg?v=2", type: "image/svg+xml" }],
     shortcut: [
-      { url: "/favicon-16x16.svg", sizes: "16x16", type: "image/svg+xml" },
-      { url: "/favicon-32x32.svg", sizes: "32x32", type: "image/svg+xml" },
+      { url: "/favicon-16x16.svg?v=2", sizes: "16x16", type: "image/svg+xml" },
+      { url: "/favicon-32x32.svg?v=2", sizes: "32x32", type: "image/svg+xml" },
     ],
-    apple: [{ url: "/apple-touch-icon.svg", sizes: "180x180", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.svg?v=2", sizes: "180x180", type: "image/svg+xml" }],
   },
   manifest: "/site.webmanifest",
   formatDetection: {
@@ -202,10 +200,12 @@ export default async function RootLayout({
         </Script>
       </head>
       <body className="min-h-full bg-background text-foreground font-sans" suppressHydrationWarning>
-        <ThemeProvider>
-          {children}
-          <ThemedToaster />
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider>
+            {children}
+            <ThemedToaster />
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
