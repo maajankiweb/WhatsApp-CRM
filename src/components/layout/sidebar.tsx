@@ -93,18 +93,18 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/contacts", label: "Contacts", icon: Users },
-  { href: "/pipelines", label: "Pipelines", icon: GitBranch },
-  { href: "/broadcasts", label: "Broadcasts", icon: Radio },
-  { href: "/automations", label: "Automations", icon: Zap },
-  { href: "/flows", label: "Flows", icon: Workflow, beta: true },
-  { href: "/agents", label: "AI Agents", icon: Bot },
-  { href: "/clinic", label: "Clinic Manager", icon: Stethoscope },
-  { href: "/business", label: "Business Suite", icon: Briefcase },
-  { href: "/settings?tab=reseller", label: "Reseller", icon: RefreshCw },
+  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
+  { href: "/notifications", labelKey: "notifications", icon: Bell },
+  { href: "/contacts", labelKey: "contacts", icon: Users },
+  { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
+  { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
+  { href: "/automations", labelKey: "automations", icon: Zap },
+  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
+  { href: "/agents", labelKey: "aiAgents", icon: Bot },
+  { href: "/clinic", labelKey: "clinic", icon: Stethoscope },
+  { href: "/business", labelKey: "business", icon: Briefcase },
+  { href: "/settings?tab=reseller", labelKey: "reseller", icon: RefreshCw },
 ];
 
 const bottomNavItems = [

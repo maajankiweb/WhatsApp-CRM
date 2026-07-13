@@ -1,4 +1,4 @@
-import { AiError } from '../types'
+import { AiError, type ProviderResult } from '../types'
 import { MAX_OUTPUT_TOKENS } from '../defaults'
 import {
   mergeConsecutive,
@@ -19,7 +19,7 @@ interface GeminiResponse {
  * Call Google Gemini's generateContent endpoint with the caller's own key.
  * Returns the raw assistant text.
  */
-export async function generateGemini(args: ProviderArgs): Promise<string> {
+export async function generateGemini(args: ProviderArgs): Promise<ProviderResult> {
   const { apiKey, model, systemPrompt, messages, timeoutMs } = args
 
   // Map model name: if user just typed 'gemini-2.5-flash', we use it,
@@ -76,5 +76,5 @@ export async function generateGemini(args: ProviderArgs): Promise<string> {
     })
   }
 
-  return text
+  return { text, usage: null }
 }

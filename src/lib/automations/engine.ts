@@ -18,8 +18,10 @@ import type {
   AssignConversationStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
-import { engineSendText, engineSendTemplate } from './meta-send'
+import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
 import { derivePresence, type StoredPresence } from '../presence'
+import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
+import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 
 // ------------------------------------------------------------
 // Public API

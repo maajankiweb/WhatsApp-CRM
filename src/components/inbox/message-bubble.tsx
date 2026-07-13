@@ -19,26 +19,7 @@ import { format } from "date-fns";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
-// Local translation helper for plain English
-const t = (key: string, options?: any): string => {
-  const dict: Record<string, string> = {
-    photo: "Photo",
-    video: "Video",
-    audio: "Audio",
-    document: "Document",
-    template: "Template",
-    locationShared: "Location shared",
-    buttonReply: "Button reply",
-    interactiveReply: "[Interactive reply]",
-    unsupported: "[Unsupported message type]",
-    aiBadge: "AI",
-    aiBadgeTitle: "Replied automatically by AI",
-  };
-  if (key === "unavailable") {
-    return `${options?.label ?? "Media"} unavailable`;
-  }
-  return dict[key] ?? key;
-};
+import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
   message: Message;
@@ -153,7 +134,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
           {message.media_url ? (
             <MediaImage url={message.media_url} alt="Shared image" />
           ) : (
-            <MediaUnavailable label={t("photo")} />
+            <MediaUnavailable label={t("photo")} t={t} />
           )}
           {message.content_text && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm">
@@ -173,7 +154,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
               className="max-h-64 max-w-60 rounded-lg"
             />
           ) : (
-            <MediaUnavailable label={t("video")} />
+            <MediaUnavailable label={t("video")} t={t} />
           )}
           {message.content_text && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm">
@@ -189,14 +170,14 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
           {message.media_url ? (
             <audio src={message.media_url} controls className="max-w-60" />
           ) : (
-            <MediaUnavailable label={t("audio")} />
+            <MediaUnavailable label={t("audio")} t={t} />
           )}
         </div>
       );
 
     case "document":
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || t("document")} />;
+        return <MediaUnavailable label={message.content_text || t("document")} t={t} />;
       }
       return (
         <a

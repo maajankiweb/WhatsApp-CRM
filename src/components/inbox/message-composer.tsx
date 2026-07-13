@@ -22,7 +22,10 @@ import {
   Sparkles,
   CreditCard,
   Zap,
+  Plus,
+  MessageSquareDashed,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -54,7 +57,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import type { CannedResponse, QuickReply, InteractiveMessagePayload } from "@/types";
 import { checkShortcutTrigger, getMediaKindFromUrl } from "@/lib/inbox/canned-utils";
-import { InteractiveBuilder } from "@/components/interactive/interactive-builder";
+import { InteractiveBuilder, blankButtonsPayload } from "@/components/interactive/interactive-builder";
 import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
 import { QuickReplyPicker } from "./quick-reply-picker";
 
@@ -155,74 +158,6 @@ export function MessageComposer({
     useState<InteractiveMessagePayload | null>(null);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [savingQuickReply, setSavingQuickReply] = useState(false);
-
-  const openInteractiveBuilder = useCallback((init?: InteractiveMessagePayload) => {
-    setInteractivePayload(
-      init ?? {
-        kind: "buttons",
-        body: "",
-        buttons: [{ id: "opt_1", title: "Option 1" }],
-      }
-    );
-    setInteractiveOpen(true);
-  }, []);
-
-  const sendInteractive = useCallback(async () => {
-    if (!interactivePayload) return;
-    const result = validateInteractivePayload(interactivePayload);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    setInteractiveOpen(false);
-    onSendInteractive?.(interactivePayload, replyTo?.id);
-    onClearReply?.();
-  }, [interactivePayload, onSendInteractive, replyTo?.id, onClearReply]);
-
-  const saveAsQuickReply = useCallback(async () => {
-    if (!interactivePayload) return;
-    const result = validateInteractivePayload(interactivePayload);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-
-    const title = prompt("Enter a title for this quick reply:");
-    if (!title) return;
-
-    setSavingQuickReply(true);
-    try {
-      const res = await fetch("/api/quick-replies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          kind: "interactive",
-          interactive_payload: interactivePayload,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Saved as quick reply!");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? "Failed to save quick reply");
-      }
-    } catch {
-      toast.error("Failed to save quick reply");
-    } finally {
-      setSavingQuickReply(false);
-    }
-  }, [interactivePayload]);
-
-  const handlePickQuickReply = useCallback((qr: QuickReply) => {
-    setQuickReplyOpen(false);
-    if (qr.kind === "interactive" && qr.interactive_payload) {
-      openInteractiveBuilder(qr.interactive_payload);
-    } else if (qr.content_text) {
-      setText((prev) => (prev ? prev + " " + qr.content_text : qr.content_text!));
-      textareaRef.current?.focus();
-    }
-  }, [openInteractiveBuilder]);
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -559,7 +494,7 @@ export function MessageComposer({
       toast.error(result.error);
       return;
     }
-    onSendInteractive(interactivePayload, replyTo?.id);
+    onSendInteractive?.(interactivePayload!, replyTo?.id);
     setInteractiveOpen(false);
     onClearReply?.();
   }, [interactivePayload, onSendInteractive, replyTo?.id, onClearReply]);

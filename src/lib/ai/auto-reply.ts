@@ -141,7 +141,7 @@ export async function dispatchInboundToAiReply(
       mode: 'auto_reply',
       provider: config.provider,
       model: config.model,
-      usage,
+      usage: usage ?? null,
     })
 
     if (handoff || !text) {

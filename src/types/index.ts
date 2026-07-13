@@ -536,9 +536,6 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
-export type SendButtonsStepConfig = InteractiveMessagePayload;
-export type SendListStepConfig = InteractiveMessagePayload;
-
 export type AutomationStepConfig =
   | SendMessageStepConfig
   | SendButtonsStepConfig

@@ -261,9 +261,9 @@ describe('POST /api/whatsapp/webhook', () => {
       { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
     ]
 
-    // conversations: .single() → not found error → insert → new conversation
+    // conversations: limit(1) → empty list → insert → new conversation
     mockQueryResult['conversations'] = [
-      { data: null, error: { code: 'PGRST116', message: 'No rows found' } }, // single()
+      { data: [], error: null },
       { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },        // insert
     ]
 
@@ -344,7 +344,7 @@ describe('POST /api/whatsapp/webhook', () => {
     ]
     // New conversation
     mockQueryResult['conversations'] = [
-      { data: null, error: { code: 'PGRST116' } },
+      { data: [], error: null },
       { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
     ]
     // lookupInternalIdByMetaId → messages.maybeSingle()
@@ -386,7 +386,7 @@ describe('POST /api/whatsapp/webhook', () => {
       { data: { id: 'contact-uuid-999', name: 'Alice', phone: '12345' }, error: null },
     ]
     mockQueryResult['conversations'] = [
-      { data: null, error: { code: 'PGRST116' } },
+      { data: [], error: null },
       { data: { id: 'conv-uuid-777', unread_count: 0 }, error: null },
     ]
     mockQueryResult['messages'] = [

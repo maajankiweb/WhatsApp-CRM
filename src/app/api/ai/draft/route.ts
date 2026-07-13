@@ -120,7 +120,7 @@ export async function POST(request: Request) {
         mode: 'draft',
         provider: config.provider,
         model: config.model,
-        usage,
+        usage: usage ?? null,
       })
     } catch (logErr) {
       console.error('[ai/draft] usage log skipped:', logErr)

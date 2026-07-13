@@ -4,6 +4,7 @@ import {
   type AiUsage,
   type ChatMessage,
   type GenerateResult,
+  type ProviderResult,
 } from './types'
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
 import { generateOpenAi } from './providers/openai'
@@ -34,7 +35,7 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
     timeoutMs,
   }
 
-  let result: { text: string; usage: AiUsage | null }
+  let result: ProviderResult
   switch (config.provider) {
     case 'openai':
       result = await generateOpenAi(providerArgs)
@@ -43,7 +44,7 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
       result = await generateAnthropic(providerArgs)
       break
     case 'gemini':
-      raw = await generateGemini(providerArgs)
+      result = await generateGemini(providerArgs)
       break
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {
@@ -52,7 +53,7 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
       })
   }
 
-  return parseGeneration(result.text, result.usage)
+  return parseGeneration(result.text, result.usage ?? null)
 }
 
 /**
