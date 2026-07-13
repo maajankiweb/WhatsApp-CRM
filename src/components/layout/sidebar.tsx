@@ -10,6 +10,7 @@ import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
   Bot,
+  Briefcase,
   Crown,
   GitBranch,
   LayoutDashboard,
@@ -19,6 +20,7 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  Stethoscope,
   User,
   UserCog,
   Users,
@@ -100,6 +102,8 @@ const navItems: NavItem[] = [
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/flows", label: "Flows", icon: Workflow, beta: true },
   { href: "/agents", label: "AI Agents", icon: Bot },
+  { href: "/clinic", label: "Clinic Manager", icon: Stethoscope },
+  { href: "/business", label: "Business Suite", icon: Briefcase },
   { href: "/settings?tab=reseller", label: "Reseller", icon: RefreshCw },
 ];
 

@@ -66,7 +66,7 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, booking_stage')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
@@ -78,6 +78,34 @@ export async function dispatchInboundToAiReply(
 
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
+
+    // --- Healthcare Booking Flow Intercept ---
+    const incomingText = latestUserMessage(messages) || ''
+    const isBookingActive = !!conv.booking_stage
+    const triggersBooking = incomingText.toLowerCase().includes('book') ||
+                            incomingText.toLowerCase().includes('appointment') ||
+                            incomingText.toLowerCase().includes('doctor') ||
+                            incomingText.toLowerCase().includes('clinic')
+
+    const { data: clinicSettings } = await db
+      .from('clinic_ai_settings')
+      .select('ai_enabled')
+      .eq('organization_id', accountId)
+      .maybeSingle()
+
+    if (clinicSettings && clinicSettings.ai_enabled && (isBookingActive || triggersBooking)) {
+      const { runBookingFlow } = await import('./booking-flow')
+      const replyText = await runBookingFlow(db, accountId, conversationId, incomingText, config)
+
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text: replyText,
+      })
+      return
+    }
 
     // Ground the reply in the account's knowledge base (best-effort).
     const knowledge = await retrieveKnowledge(
